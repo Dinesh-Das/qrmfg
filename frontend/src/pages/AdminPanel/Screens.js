@@ -4,15 +4,15 @@ import axios from 'axios';
 
 const { Title } = Typography;
 
-// List of all page files (auto-generated or hardcoded for now)
-const pageFiles = [
-  'Home.js', 'Users.js', 'Roles.js', 'Permissions.js', 'Groups.js', 'Screens.js', 'AuditLogs.js', 'Sessions.js', 'Profile.js', 'Dashboard.js', 'Reports.js', 'SystemDashboard.js', 'Login.js', 'ForgotPassword.js', 'ResetPassword.js', 'VerifyEmail.js', 'ResendVerification.js', 'Settings.js'
-];
+// Dynamically get all .js files in pages and subdirectories (excluding test files)
+const pagesContext = require.context('../../pages', true, /^(?!.*\.test\.js$).*\.js$/);
+const pageFiles = pagesContext.keys().map(f => f.replace('./', ''));
 
 const getScreenRoute = (file) => {
-  const name = file.replace('.js', '');
+  let name = file.replace('.js', '').split('/').pop();
+  name = name.replace(/View$/i, ''); // Remove 'View' suffix if present
   if (name.toLowerCase() === 'home') return '/';
-  return '/' + name.replace(/([A-Z])/g, (m, p1, o) => (o > 0 ? '-' : '') + p1.toLowerCase());
+  return '/' + name.toLowerCase();
 };
 
 const Screens = () => {
@@ -83,7 +83,7 @@ const Screens = () => {
   ];
 
   const data = pageFiles.map(file => {
-    const name = file.replace('.js', '');
+    const name = file.replace('.js', '').split('/').pop();
     const route = getScreenRoute(file);
     return { key: route, name, route };
   });

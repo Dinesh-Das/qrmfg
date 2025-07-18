@@ -47,11 +47,15 @@ const Navigation = () => {
 
   const menuItems = [
     { key: '/admin', icon: <UserOutlined />, label: <Link to="/admin">Admin Panel</Link> },
-    { key: '/system', icon: <AppstoreOutlined />, label: <Link to="/system">System Dashboard</Link> },
     { key: '/reports', icon: <FileSearchOutlined />, label: <Link to="/reports">Reports</Link> },
     { key: '/home', icon: <AppstoreAddOutlined />, label: <Link to="/home">Home</Link> },
     { key: '/dashboard', icon: <AppstoreAddOutlined />, label: <Link to="/dashboard">Dashboard</Link> },
     { key: '/settings', icon: <SettingOutlined />, label: <Link to="/settings">Settings</Link> },
+    { key: '/pending-tasks', icon: <FileSearchOutlined />, label: <Link to="/pending-tasks">Pending Tasks</Link> },
+    { key: '/jvc', icon: <AppstoreOutlined />, label: <Link to="/jvc">JVC</Link> },
+    { key: '/cqs', icon: <AppstoreOutlined />, label: <Link to="/cqs">CQS</Link> },
+    { key: '/tech', icon: <AppstoreOutlined />, label: <Link to="/tech">TECH</Link> },
+    { key: '/plant', icon: <AppstoreOutlined />, label: <Link to="/plant">PLANT</Link> },
   ];
 
   // Only show menu items that are allowed for the user

@@ -11,14 +11,17 @@ import Roles from './pages/AdminPanel/Roles';
 import AuditLogs from './pages/AdminPanel/AuditLogs';
 import Screens from './pages/AdminPanel/Screens';
 import Settings from './pages/Settings';
-import ResetPassword from './pages/ResetPassword';
-import VerifyEmail from './pages/VerifyEmail';
+
 import Dashboard from './pages/Dashboard';
 import Reports from './pages/Reports';
-import SystemDashboard from './pages/SystemDashboard';
 import Home from './pages/Home';
 import AdminPanel from './pages/AdminPanel';
+import PendingTasks from './pages/PendingTasks';
 import { isAuthenticated } from './utils/auth';
+import JVCView from './pages/JVCView';
+import CQSView from './pages/CQSView';
+import TechView from './pages/TechView';
+import PlantView from './pages/PlantView';
 
 
 const { Header, Content, Footer, Sider } = Layout;
@@ -41,11 +44,7 @@ function App() {
 
   const location = window.location.pathname;
   const unauthRoutes = [
-    '/login',
-    '/forgot-password',
-    '/reset-password',
-    '/verify-email',
-    '/resend-verification'
+    '/login'
   ];
   const showSidebar = !unauthRoutes.includes(location) && isAuthenticated();
 
@@ -63,8 +62,6 @@ function App() {
           <Content style={{ margin: '16px' }}>
             <Routes>
               <Route path="/login" element={<Login />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/verify-email" element={<VerifyEmail />} />
               <Route path="/admin" element={<ProtectedRoute><AdminPanel /></ProtectedRoute>} />
               <Route path="/settings" element={
                 <ProtectedRoute>
@@ -81,11 +78,11 @@ function App() {
                   <Reports />
                 </ProtectedRoute>
               } />
-              <Route path="/system" element={
-                <ProtectedRoute>
-                  <SystemDashboard />
-                </ProtectedRoute>
-              } />
+              <Route path="/pending-tasks" element={<ProtectedRoute><PendingTasks /></ProtectedRoute>} />
+              <Route path="/jvc" element={<ProtectedRoute><JVCView /></ProtectedRoute>} />
+              <Route path="/cqs" element={<ProtectedRoute><CQSView /></ProtectedRoute>} />
+              <Route path="/tech" element={<ProtectedRoute><TechView /></ProtectedRoute>} />
+              <Route path="/plant" element={<ProtectedRoute><PlantView /></ProtectedRoute>} />
               <Route path="/" element={
                 <ProtectedRoute>
                   <Home />
