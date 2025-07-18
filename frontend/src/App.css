@@ -1,0 +1,103 @@
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+body[data-theme='dark'] {
+  background: #18191a !important;
+  color: #f0f2f5 !important;
+}
+body[data-theme='dark'] .ant-layout {
+  background: #18191a !important;
+}
+body[data-theme='dark'] .ant-layout-header,
+body[data-theme='dark'] .ant-layout-sider,
+body[data-theme='dark'] .ant-layout-content,
+body[data-theme='dark'] .ant-card,
+body[data-theme='dark'] .ant-modal-content {
+  background: #23272f !important;
+  color: #f0f2f5 !important;
+}
+body[data-theme='dark'] .ant-menu,
+body[data-theme='dark'] .ant-menu-item,
+body[data-theme='dark'] .ant-menu-submenu {
+  background: #23272f !important;
+  color: #f0f2f5 !important;
+}
+body[data-theme='dark'] .ant-menu-item-selected {
+  background: #1890ff !important;
+  color: #fff !important;
+}
+body[data-theme='dark'] .ant-btn-primary {
+  background: #1890ff !important;
+  border-color: #1890ff !important;
+}
+body[data-theme='dark'] .ant-input,
+body[data-theme='dark'] .ant-select-selector,
+body[data-theme='dark'] .ant-input-password {
+  background: #23272f !important;
+  color: #f0f2f5 !important;
+  border-color: #434343 !important;
+}
+body[data-theme='dark'] .ant-input::placeholder,
+body[data-theme='dark'] .ant-select-selection-placeholder {
+  color: #bfbfbf !important;
+}
+body[data-theme='dark'] .ant-table {
+  background: #23272f !important;
+  color: #f0f2f5 !important;
+}
+body[data-theme='dark'] .ant-table-thead > tr > th {
+  background: #18191a !important;
+  color: #f0f2f5 !important;
+}
+body[data-theme='dark'] .ant-table-tbody > tr > td {
+  background: #23272f !important;
+  color: #f0f2f5 !important;
+}
+body[data-theme='dark'] .ant-modal-content {
+  background: #23272f !important;
+  color: #f0f2f5 !important;
+}
+body[data-theme='dark'] .ant-radio-button-wrapper-checked {
+  background: #1890ff !important;
+  color: #fff !important;
+}
+body[data-theme='dark'] .ant-radio-button-wrapper {
+  background: #23272f !important;
+  color: #f0f2f5 !important;
+}
