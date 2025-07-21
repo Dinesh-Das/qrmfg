@@ -13,7 +13,7 @@ export const refreshAccessToken = async () => {
   const refreshToken = getRefreshToken();
   if (!refreshToken) return null;
   try {
-    const response = await axios.post('/api/v1/auth/refresh', { refreshToken });
+    const response = await axios.post('/qrmfg/api/v1/auth/refresh', { refreshToken });
     if (response.data && response.data.token) {
       setToken(response.data.token);
       return response.data.token;
@@ -21,7 +21,7 @@ export const refreshAccessToken = async () => {
   } catch (err) {
     removeToken();
     removeRefreshToken();
-    window.location.href = '/login';
+    window.location.href = '/qrmfg/login';
   }
   return null;
 };
@@ -38,13 +38,37 @@ export const getUserRoles = () => {
   }
 };
 
+export const getUserRole = () => {
+  const roles = getUserRoles();
+  return roles && roles.length > 0 ? roles[0] : null;
+};
+
+export const isAdmin = () => {
+    const roles = getUserRoles();
+    return roles.some(role => 
+        role.toLowerCase() === 'admin' || 
+        role.toLowerCase() === 'role_admin' || 
+        role.toLowerCase().startsWith('admin')
+    );
+};
+
+export const getCurrentUser = () => {
+  const token = getToken();
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload;
+  } catch {
+    return null;
+  }
+};
+
 axios.interceptors.request.use(
   (config) => {
-    // Don't add token for login or refresh endpoints
-    if (!config.url.endsWith("/auth/login") && !config.url.endsWith("/auth/refresh")) {
+    if (!config.url.endsWith("/qrmfg/api/v1/auth/login") && !config.url.endsWith("/qrmfg/api/v1/auth/refresh")) {
       const token = getToken();
       if (token) {
-        config.headers["Authorization"] = `Bearer ${token}`;
+        config.headers.Authorization = `Bearer ${token}`;
       }
     }
     return config;

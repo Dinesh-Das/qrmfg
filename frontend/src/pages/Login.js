@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Form, Input, Button, Card, Alert, Typography } from "antd";
 import axios from "axios";
-import { setToken, setRefreshToken } from "../utils/auth";
+import { setToken } from "../utils/auth";
 import { Link } from "react-router-dom";
 import { notifySuccess, notifyError } from '../utils/notify';
 
@@ -16,12 +16,11 @@ const Login = () => {
     setError("");
     console.log("Form submitted!", values); // Debug: see if form submits
     try {
-      const response = await axios.post("/api/v1/auth/login", values);
-      if (response.data && response.data.token && response.data.refreshToken) {
+      const response = await axios.post("/qrmfg/api/v1/auth/login", values);
+      if (response.data && response.data.token) {
         setToken(response.data.token);
-        setRefreshToken(response.data.refreshToken);
         notifySuccess('Login Successful', 'Welcome!');
-        window.location.href = "/";
+        window.location.href = "/qrmfg";
       } else {
         notifyError('Login Failed', 'No token returned');
         setError("Login failed: No token returned");
@@ -77,7 +76,7 @@ const Login = () => {
             </Button>
           </Form.Item>
           <div style={{ textAlign: "center" }}>
-            <Link to="/forgot-password">Forgot Password?</Link>
+            <Link to="/qrmfg/forgot-password">Forgot Password?</Link>
           </div>
         </Form>
       </Card>

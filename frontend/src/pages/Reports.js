@@ -29,9 +29,9 @@ const Reports = () => {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      axios.get('/api/v1/reports/users'),
-      axios.get('/api/v1/reports/roles'),
-      axios.get('/api/v1/reports/activity'),
+      axios.get('/qrmfg/api/v1/reports/users'),
+      axios.get('/qrmfg/api/v1/reports/roles'),
+      axios.get('/qrmfg/api/v1/reports/activity'),
     ]).then(([u, r, a]) => {
       setUsers(u.data);
       setRoles(r.data);

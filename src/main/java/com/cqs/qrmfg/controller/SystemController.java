@@ -10,7 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/v1/system")
+@RequestMapping("/qrmfg/api/v1/system")
 public class SystemController {
     @Autowired private UserService userService;
     @Autowired private UserSessionService userSessionService;

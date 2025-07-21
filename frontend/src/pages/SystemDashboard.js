@@ -1,12 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Statistic, Typography, Table } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Typography, Card, Row, Col, Statistic, Table } from 'antd';
 import axios from 'axios';
 
 const { Title } = Typography;
-
-const pageFiles = [
-  'Home.js', 'Users.js', 'Roles.js', 'Permissions.js', 'Groups.js', 'Screens.js', 'AuditLogs.js', 'Sessions.js', 'Profile.js', 'Dashboard.js', 'Reports.js', 'SystemDashboard.js', 'Login.js', 'ForgotPassword.js', 'ResetPassword.js', 'VerifyEmail.js', 'ResendVerification.js', 'Settings.js'
-];
 
 const SystemDashboard = () => {
   const [health, setHealth] = useState({});
@@ -16,33 +12,102 @@ const SystemDashboard = () => {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      axios.get('/api/v1/system/health'),
-      axios.get('/api/v1/system/stats'),
-    ]).then(([h, s]) => {
-      setHealth(h.data);
-      setStats(s.data);
-    }).finally(() => setLoading(false));
+      axios.get('/qrmfg/api/v1/system/health'),
+      axios.get('/qrmfg/api/v1/system/stats'),
+    ]).then(([healthRes, statsRes]) => {
+      setHealth(healthRes.data);
+      setStats(statsRes.data);
+    }).catch(error => {
+      console.error('Failed to fetch system data:', error);
+    }).finally(() => {
+      setLoading(false);
+    });
   }, []);
 
+  const formatBytes = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const formatUptime = (ms) => {
+    const seconds = Math.floor(ms / 1000);
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return `${days}d ${hours}h ${minutes}m`;
+  };
+
   return (
-    <div style={{ padding: 24 }}>
+    <div>
       <Title level={2}>System Dashboard</Title>
       <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col span={6}><Card><Statistic title="System Status" value={health.status || '...'} loading={loading} /></Card></Col>
-        <Col span={6}><Card><Statistic title="Uptime (ms)" value={health.uptime} loading={loading} /></Card></Col>
-        <Col span={6}><Card><Statistic title="Memory Used (bytes)" value={health.memory} loading={loading} /></Card></Col>
+        <Col span={6}>
+          <Card>
+            <Statistic
+              title="System Status"
+              value={health.status || 'Unknown'}
+              valueStyle={{ color: health.status === 'UP' ? '#3f8600' : '#cf1322' }}
+              loading={loading}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic
+              title="Uptime"
+              value={health.uptime ? formatUptime(health.uptime) : 'N/A'}
+              loading={loading}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic
+              title="Memory Used"
+              value={health.memory ? formatBytes(health.memory) : 'N/A'}
+              loading={loading}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic
+              title="Active Users"
+              value={stats.activeUsers || 0}
+              loading={loading}
+            />
+          </Card>
+        </Col>
       </Row>
-      <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col span={8}><Card><Statistic title="Active Users" value={stats.activeUsers} loading={loading} /></Card></Col>
-        <Col span={8}><Card><Statistic title="Active Sessions" value={stats.activeSessions} loading={loading} /></Card></Col>
-        <Col span={8}><Card><Statistic title="Total Screens" value={pageFiles.length} loading={loading} /></Card></Col>
-      </Row>
+
       <Row gutter={16}>
         <Col span={24}>
-          <Card title="All Stats">
-            <Table dataSource={Object.entries(stats).map(([k, v]) => ({ key: k, stat: k, value: v }))}
-                   columns={[{ title: 'Stat', dataIndex: 'stat' }, { title: 'Value', dataIndex: 'value' }]}
-                   pagination={false} loading={loading} />
+          <Card title="System Statistics">
+            <Table
+              dataSource={Object.entries(stats).map(([key, value]) => ({
+                key,
+                metric: key.replace(/([A-Z])/g, ' $1').toLowerCase(),
+                value: typeof value === 'number' ? value.toLocaleString() : value
+              }))}
+              columns={[
+                {
+                  title: 'Metric',
+                  dataIndex: 'metric',
+                  key: 'metric',
+                  render: text => text.charAt(0).toUpperCase() + text.slice(1)
+                },
+                {
+                  title: 'Value',
+                  dataIndex: 'value',
+                  key: 'value'
+                }
+              ]}
+              pagination={false}
+              loading={loading}
+            />
           </Card>
         </Col>
       </Row>

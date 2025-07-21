@@ -16,23 +16,11 @@ public class JwtUtil {
     @Value("${jwt.expiration}")
     private long jwtExpirationInMs;
 
-    @Value("${jwt.refreshExpiration:604800000}") // 7 days default
-    private long jwtRefreshExpirationInMs;
-
     public String generateToken(String username) {
         return Jwts.builder()
                 .setSubject(username)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + jwtExpirationInMs))
-                .signWith(SignatureAlgorithm.HS512, secret)
-                .compact();
-    }
-
-    public String generateRefreshToken(String username) {
-        return Jwts.builder()
-                .setSubject(username)
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + jwtRefreshExpirationInMs))
                 .signWith(SignatureAlgorithm.HS512, secret)
                 .compact();
     }
@@ -61,17 +49,8 @@ public class JwtUtil {
         return extractExpiration(token).before(new Date());
     }
 
-    public boolean isRefreshTokenExpired(String token) {
-        return extractExpiration(token).before(new Date());
-    }
-
     public boolean validateToken(String token, String username) {
         final String extractedUsername = extractUsername(token);
         return (extractedUsername.equals(username) && !isTokenExpired(token));
-    }
-
-    public boolean validateRefreshToken(String token, String username) {
-        final String extractedUsername = extractUsername(token);
-        return (extractedUsername.equals(username) && !isRefreshTokenExpired(token));
     }
 } 

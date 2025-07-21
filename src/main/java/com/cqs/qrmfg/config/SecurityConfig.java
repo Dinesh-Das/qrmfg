@@ -53,10 +53,10 @@ public class SecurityConfig {
             .and()
             .authorizeHttpRequests()
                 .antMatchers("/", "/index.html", "/static/**", "/css/**", "/js/**", "/favicon.ico").permitAll()
-                .antMatchers("/api/v1/auth/**").permitAll()
-                .antMatchers("/api/v1/admin/screen-role-mapping/my-screens").authenticated()
-                .antMatchers("/api/v1/admin/**").authenticated()
-                .antMatchers("/api/**").authenticated()
+                .antMatchers("/qrmfg/api/v1/auth/**").permitAll()
+                .antMatchers("/qrmfg/api/v1/admin/screen-role-mapping/my-screens").authenticated()
+                .antMatchers("/qrmfg/api/v1/admin/**").authenticated()
+                .antMatchers("/qrmfg/api/**").authenticated()
                 .anyRequest().permitAll()
             .and()
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
@@ -74,12 +74,12 @@ public class SecurityConfig {
             HttpServletRequest req = (HttpServletRequest) request;
             HttpServletResponse res = (HttpServletResponse) response;
             String path = req.getRequestURI();
-            if (path.equals("/api/v1/admin/screen-role-mapping/my-screens")) {
+            if (path.equals("/qrmfg/api/v1/admin/screen-role-mapping/my-screens")) {
                 // Allow all authenticated users
                 chain.doFilter(request, response);
                 return;
             }
-            if (path.startsWith("/api/v1/admin/")) {
+            if (path.startsWith("/qrmfg/api/v1/admin/")) {
                 Authentication auth = SecurityContextHolder.getContext().getAuthentication();
                 if (auth == null || !(auth.getPrincipal() instanceof User)) {
                     res.setStatus(HttpServletResponse.SC_FORBIDDEN);
@@ -100,7 +100,7 @@ public class SecurityConfig {
                 List<Long> roleIds = user.getRoles().stream().map(r -> r.getId()).collect(Collectors.toList());
                 List<String> allowedRoutes = screenRoleMappingService.getAllowedRoutesForRoles(roleIds);
                 // Remove /api/v1/admin prefix for matching
-                String route = path.replaceFirst("^/api/v1/admin", "");
+                String route = path.replaceFirst("^/qrmfg/api/v1/admin", "");
                 if (!allowedRoutes.contains(route)) {
                     res.setStatus(HttpServletResponse.SC_FORBIDDEN);
                     return;

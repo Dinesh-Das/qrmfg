@@ -1,9 +1,7 @@
 package com.cqs.qrmfg.controller;
 
 import com.cqs.qrmfg.config.JwtUtil;
-import com.cqs.qrmfg.model.RefreshToken;
 import com.cqs.qrmfg.model.User;
-import com.cqs.qrmfg.repository.RefreshTokenRepository;
 import com.cqs.qrmfg.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,14 +25,12 @@ import javax.servlet.http.HttpServletRequest;
 import org.springframework.transaction.annotation.Transactional;
 
 @RestController
-@RequestMapping("/api/v1/auth")
+@RequestMapping("/qrmfg/api/v1/auth")
 public class AuthController {
     @Autowired
     private AuthenticationManager authenticationManager;
     @Autowired
     private JwtUtil jwtUtil;
-    @Autowired
-    private RefreshTokenRepository refreshTokenRepository;
     @Autowired
     private UserRepository userRepository;
     @Autowired
@@ -43,8 +39,7 @@ public class AuthController {
     private UserSessionRepository userSessionRepository;
     @Autowired
     private AuditLogService auditLogService;
-    @Value("${jwt.refreshExpiration:604800000}")
-    private long jwtRefreshExpirationInMs;
+    // Removed jwtRefreshExpirationInMs field
 
     @Transactional
     @PostMapping("/login")
@@ -56,16 +51,9 @@ public class AuthController {
                     new UsernamePasswordAuthenticationToken(username, password)
             );
             String token = jwtUtil.generateToken(username);
-            String refreshToken = jwtUtil.generateRefreshToken(username);
-            Optional<User> userOpt = userRepository.findByUsername(username);
-            if (userOpt.isPresent()) {
-                refreshTokenRepository.deleteByUser(userOpt.get());
-                RefreshToken refreshTokenEntity = new RefreshToken(refreshToken, userOpt.get(), LocalDateTime.now().plusNanos(jwtRefreshExpirationInMs * 1_000_000));
-                refreshTokenRepository.save(refreshTokenEntity);
-            }
+            // Removed refresh token logic
             Map<String, String> response = new HashMap<>();
             response.put("token", token);
-            response.put("refreshToken", refreshToken);
             return ResponseEntity.ok(response);
         } catch (AuthenticationException e) {
             // Log failed login as a security event
@@ -84,30 +72,7 @@ public class AuthController {
         }
     }
 
-    @PostMapping("/refresh")
-    public ResponseEntity<?> refresh(@RequestBody Map<String, String> request) {
-        String refreshToken = request.get("refreshToken");
-        if (refreshToken == null) {
-            return ResponseEntity.badRequest().body("Refresh token is required");
-        }
-        Optional<RefreshToken> tokenOpt = refreshTokenRepository.findByToken(refreshToken);
-        if (tokenOpt.isEmpty()) {
-            return ResponseEntity.status(401).body("Invalid refresh token");
-        }
-        RefreshToken tokenEntity = tokenOpt.get();
-        if (tokenEntity.getExpiryDate().isBefore(LocalDateTime.now())) {
-            refreshTokenRepository.delete(tokenEntity);
-            return ResponseEntity.status(401).body("Refresh token expired");
-        }
-        String username = tokenEntity.getUser().getUsername();
-        if (!jwtUtil.validateRefreshToken(refreshToken, username)) {
-            return ResponseEntity.status(401).body("Invalid refresh token");
-        }
-        String newToken = jwtUtil.generateToken(username);
-        Map<String, String> response = new HashMap<>();
-        response.put("token", newToken);
-        return ResponseEntity.ok(response);
-    }
+ 
 
     // Remove or comment out the getMySessions and terminateMySession methods, as they are not required for the current feature set.
 } 

@@ -16,13 +16,11 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 const { Header, Sider, Content } = Layout;
 
 const menuItems = [
-  { key: "/users", icon: <UserOutlined />, label: <Link to="/users">Users</Link> },
-  { key: "/roles", icon: <TeamOutlined />, label: <Link to="/roles">Roles</Link> },
-  { key: "/permissions", icon: <SafetyOutlined />, label: <Link to="/permissions">Permissions</Link> },
-  { key: "/field-permissions", icon: <FileProtectOutlined />, label: <Link to="/field-permissions">Field Permissions</Link> },
-  { key: "/screens", icon: <DesktopOutlined />, label: <Link to="/screens">Screens</Link> },
-  { key: "/audit-logs", icon: <FileSearchOutlined />, label: <Link to="/audit-logs">Audit Logs</Link> },
-  { key: "/settings", icon: <SettingOutlined />, label: <Link to="/settings">Settings</Link> },
+  { key: "/qrmfg/users", icon: <UserOutlined />, label: <Link to="/qrmfg/users">Users</Link> },
+  { key: "/qrmfg/roles", icon: <TeamOutlined />, label: <Link to="/qrmfg/roles">Roles</Link> },
+  { key: "/qrmfg/screens", icon: <DesktopOutlined />, label: <Link to="/qrmfg/screens">Screens</Link> },
+  { key: "/qrmfg/auditlogs", icon: <FileSearchOutlined />, label: <Link to="/qrmfg/auditlogs">Audit Logs</Link> },
+  { key: "/qrmfg/settings", icon: <SettingOutlined />, label: <Link to="/qrmfg/settings">Settings</Link> },
 ];
 
 const AdminLayout = ({ children }) => {
@@ -30,7 +28,7 @@ const AdminLayout = ({ children }) => {
   const navigate = useNavigate();
   const handleLogout = () => {
     localStorage.removeItem("token");
-    navigate("/login");
+    navigate("/qrmfg/login");
   };
   return (
     <Layout style={{ minHeight: "100vh" }}>

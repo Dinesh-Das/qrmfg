@@ -13,9 +13,9 @@ const Dashboard = () => {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      axios.get('/api/v1/reports/analytics/user-stats'),
-      axios.get('/api/v1/reports/analytics/role-distribution'),
-      axios.get('/api/v1/reports/analytics/activity-timeline'),
+      axios.get('/qrmfg/api/v1/reports/analytics/user-stats'),
+      axios.get('/qrmfg/api/v1/reports/analytics/role-distribution'),
+      axios.get('/qrmfg/api/v1/reports/analytics/activity-timeline'),
     ]).then(([us, rd, at]) => {
       setUserStats(us.data);
       setRoleDist(Object.entries(rd.data).map(([role, count]) => ({ role, count })));

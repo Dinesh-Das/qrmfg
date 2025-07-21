@@ -12,7 +12,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/v1/reports")
+@RequestMapping("/qrmfg/api/v1/reports")
 public class ReportController {
     @Autowired private UserService userService;
     @Autowired private RoleService roleService;
@@ -40,7 +40,10 @@ public class ReportController {
         List<User> users = userService.findAll();
         long active = users.stream().filter(User::isEnabled).count();
         long total = users.size();
-        return Map.of("total", total, "active", active);
+        Map<String, Object> result = new HashMap<>();
+        result.put("total", total);
+        result.put("active", active);
+        return result;
     }
 
     @GetMapping("/analytics/role-distribution")

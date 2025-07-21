@@ -13,28 +13,28 @@ const Home = () => (
     <Row gutter={16} style={{ marginBottom: 24 }}>
       <Col span={6}>
         <Card title="Dashboard" bordered={false}>
-          <Button type="primary" block as={Link} to="/dashboard">
+          <Button type="primary" block as={Link} to="/qrmfg/dashboard">
             Go to Dashboard
           </Button>
         </Card>
       </Col>
       <Col span={6}>
         <Card title="Reports" bordered={false}>
-          <Button type="primary" block as={Link} to="/reports">
+          <Button type="primary" block as={Link} to="/qrmfg/reports">
             Go to Reports
           </Button>
         </Card>
       </Col>
       <Col span={6}>
         <Card title="Profile" bordered={false}>
-          <Button type="primary" block as={Link} to="/profile">
+          <Button type="primary" block as={Link} to="/qrmfg/profile">
             Go to Profile
           </Button>
         </Card>
       </Col>
       <Col span={6}>
         <Card title="System" bordered={false}>
-          <Button type="primary" block as={Link} to="/system">
+          <Button type="primary" block as={Link} to="/qrmfg/system">
             System Dashboard
           </Button>
         </Card>

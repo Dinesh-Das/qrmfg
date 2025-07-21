@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/v1/admin/sessions")
+@RequestMapping("/qrmfg/api/v1/admin/sessions")
 public class UserSessionController {
     @Autowired
     private UserSessionService userSessionService;
