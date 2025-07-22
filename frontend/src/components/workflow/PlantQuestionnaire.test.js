@@ -29,7 +29,7 @@ Object.defineProperty(window, 'innerWidth', {
 
 const mockWorkflowData = {
   id: 1,
-  materialId: 'MAT-001',
+  materialCode: 'MAT-001',
   materialName: 'Test Material',
   state: 'PLANT_PENDING',
   assignedPlant: 'Plant A',

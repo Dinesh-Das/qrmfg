@@ -20,8 +20,8 @@ public interface QueryService {
     Query createQuery(Long workflowId, String question, QueryTeam assignedTeam, String raisedBy);
     Query createQuery(Long workflowId, String question, Integer stepNumber, String fieldName, 
                      QueryTeam assignedTeam, String raisedBy);
-    Query createQuery(String materialId, String question, QueryTeam assignedTeam, String raisedBy);
-    Query createQuery(String materialId, String question, Integer stepNumber, String fieldName, 
+    Query createQuery(String materialCode, String question, QueryTeam assignedTeam, String raisedBy);
+    Query createQuery(String materialCode, String question, Integer stepNumber, String fieldName, 
                      QueryTeam assignedTeam, String raisedBy);
     
     // Query resolution
@@ -36,7 +36,7 @@ public interface QueryService {
     
     // Query search and filtering
     List<Query> findByWorkflowId(Long workflowId);
-    List<Query> findByMaterialId(String materialId);
+    List<Query> findByMaterialCode(String materialCode);
     List<Query> findByStatus(QueryStatus status);
     List<Query> findByAssignedTeam(QueryTeam team);
     List<Query> findByRaisedBy(String username);
@@ -84,4 +84,5 @@ public interface QueryService {
     void handleWorkflowStateChange(Long workflowId, String previousState, String newState);
     List<Query> findQueriesBlockingWorkflow(Long workflowId);
     boolean hasWorkflowOpenQueries(Long workflowId);
+    List<Query> searchQueriesWithContext(String materialCode, String projectCode, String plantCode, String blockId, String team, String status, String priority, int minDaysOpen);
 }

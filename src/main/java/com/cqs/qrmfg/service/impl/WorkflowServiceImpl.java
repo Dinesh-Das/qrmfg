@@ -6,7 +6,8 @@ import com.cqs.qrmfg.exception.WorkflowNotFoundException;
 import com.cqs.qrmfg.model.MaterialWorkflow;
 import com.cqs.qrmfg.model.QueryStatus;
 import com.cqs.qrmfg.model.WorkflowState;
-import com.cqs.qrmfg.repository.MaterialWorkflowRepository;
+import com.cqs.qrmfg.repository.WorkflowRepository;
+import com.cqs.qrmfg.service.NotificationService;
 import com.cqs.qrmfg.service.WorkflowService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,12 +27,15 @@ public class WorkflowServiceImpl implements WorkflowService {
     private static final Logger logger = LoggerFactory.getLogger(WorkflowServiceImpl.class);
     
     @Autowired
-    private MaterialWorkflowRepository workflowRepository;
+    private WorkflowRepository workflowRepository;
+    
+    @Autowired
+    private NotificationService notificationService;
     
     // Basic CRUD operations
     @Override
     public MaterialWorkflow save(MaterialWorkflow workflow) {
-        logger.debug("Saving workflow for material: {}", workflow.getMaterialId());
+        logger.debug("Saving workflow for material: {}", workflow.getMaterialCode());
         return workflowRepository.save(workflow);
     }
     
@@ -46,7 +50,7 @@ public class WorkflowServiceImpl implements WorkflowService {
             throw new WorkflowNotFoundException(workflow.getId());
         }
         
-        logger.debug("Updating workflow for material: {}", workflow.getMaterialId());
+        logger.debug("Updating workflow for material: {}", workflow.getMaterialCode());
         return workflowRepository.save(workflow);
     }
     
@@ -67,8 +71,9 @@ public class WorkflowServiceImpl implements WorkflowService {
     
     @Override
     @Transactional(readOnly = true)
-    public Optional<MaterialWorkflow> findByMaterialId(String materialId) {
-        return workflowRepository.findByMaterialId(materialId);
+    public Optional<MaterialWorkflow> findByMaterialCode(String materialCode) {
+        // If you want to keep returning Optional, use stream().findFirst()
+        return workflowRepository.findByMaterialCode(materialCode).stream().findFirst();
     }
     
     @Override
@@ -79,24 +84,63 @@ public class WorkflowServiceImpl implements WorkflowService {
     
     // Workflow creation
     @Override
-    public MaterialWorkflow initiateWorkflow(String materialId, String materialName, String materialDescription,
+    public MaterialWorkflow initiateWorkflow(String materialCode, String materialName, String materialDescription,
                                            String assignedPlant, String initiatedBy) {
         // Check if workflow already exists
-        if (workflowRepository.existsByMaterialId(materialId)) {
-            throw new WorkflowException("Workflow already exists for material: " + materialId);
+        if (workflowRepository.existsByMaterialCode(materialCode)) {
+            throw new WorkflowException("Workflow already exists for material: " + materialCode);
         }
         
-        MaterialWorkflow workflow = new MaterialWorkflow(materialId, initiatedBy, assignedPlant);
+        // Create workflow using enhanced constructor and map to legacy fields
+        MaterialWorkflow workflow = new MaterialWorkflow(materialCode, materialCode, assignedPlant, "DEFAULT", initiatedBy);
         workflow.setMaterialName(materialName);
         workflow.setMaterialDescription(materialDescription);
         
-        logger.info("Initiating workflow for material: {} by user: {}", materialId, initiatedBy);
-        return workflowRepository.save(workflow);
+        logger.info("Initiating workflow for material: {} by user: {}", materialCode, initiatedBy);
+        MaterialWorkflow savedWorkflow = workflowRepository.save(workflow);
+        
+        // Send notification for workflow creation
+        try {
+            notificationService.notifyWorkflowCreated(savedWorkflow);
+        } catch (Exception e) {
+            logger.warn("Failed to send workflow creation notification for material {}: {}", 
+                       materialCode, e.getMessage());
+        }
+        
+        return savedWorkflow;
     }
     
     @Override
-    public MaterialWorkflow initiateWorkflow(String materialId, String assignedPlant, String initiatedBy) {
-        return initiateWorkflow(materialId, null, null, assignedPlant, initiatedBy);
+    public MaterialWorkflow initiateWorkflow(String materialCode, String assignedPlant, String initiatedBy) {
+        return initiateWorkflow(materialCode, null, null, assignedPlant, initiatedBy);
+    }
+
+    @Override
+    public MaterialWorkflow initiateEnhancedWorkflow(String projectCode, String materialCode, String plantCode, 
+                                                   String blockId, String initiatedBy) {
+        // Check if workflow already exists for this combination
+        if (workflowRepository.existsByProjectCodeAndMaterialCodeAndPlantCodeAndBlockId(
+                projectCode, materialCode, plantCode, blockId)) {
+            throw new WorkflowException(String.format(
+                "Workflow already exists for project: %s, material: %s, plant: %s, block: %s", 
+                projectCode, materialCode, plantCode, blockId));
+        }
+        
+        MaterialWorkflow workflow = new MaterialWorkflow(projectCode, materialCode, plantCode, blockId, initiatedBy);
+        
+        logger.info("Initiating enhanced workflow for project: {}, material: {}, plant: {}, block: {} by user: {}", 
+                   projectCode, materialCode, plantCode, blockId, initiatedBy);
+        MaterialWorkflow savedWorkflow = workflowRepository.save(workflow);
+        
+        // Send notification for workflow creation
+        try {
+            notificationService.notifyWorkflowCreated(savedWorkflow);
+        } catch (Exception e) {
+            logger.warn("Failed to send workflow creation notification for project {}, material {}: {}", 
+                       projectCode, materialCode, e.getMessage());
+        }
+        
+        return savedWorkflow;
     }
     
     // State transition operations
@@ -109,9 +153,9 @@ public class WorkflowServiceImpl implements WorkflowService {
     }
     
     @Override
-    public MaterialWorkflow transitionToState(String materialId, WorkflowState newState, String updatedBy) {
-        MaterialWorkflow workflow = workflowRepository.findByMaterialId(materialId)
-            .orElseThrow(() -> WorkflowNotFoundException.forMaterialId(materialId));
+    public MaterialWorkflow transitionToState(String materialCode, WorkflowState newState, String updatedBy) {
+        MaterialWorkflow workflow = workflowRepository.findByMaterialCode(materialCode)
+            .stream().findFirst().orElseThrow(() -> WorkflowNotFoundException.forMaterialCode(materialCode));
         
         return performStateTransition(workflow, newState, updatedBy);
     }
@@ -120,7 +164,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         WorkflowState currentState = workflow.getState();
         
         logger.info("Transitioning workflow {} from {} to {} by user: {}", 
-                   workflow.getMaterialId(), currentState, newState, updatedBy);
+                   workflow.getMaterialCode(), currentState, newState, updatedBy);
         
         // Validate transition
         validateStateTransition(workflow, newState);
@@ -128,7 +172,34 @@ public class WorkflowServiceImpl implements WorkflowService {
         // Perform transition
         workflow.transitionTo(newState, updatedBy);
         
-        return workflowRepository.save(workflow);
+        MaterialWorkflow savedWorkflow = workflowRepository.save(workflow);
+        
+        // Send notification for state change - this is the core integration point
+        try {
+            notificationService.notifyWorkflowStateChanged(savedWorkflow, currentState, updatedBy);
+            
+            // Send specific notifications based on the new state
+            switch (newState) {
+                case PLANT_PENDING:
+                    // Additional notification when workflow moves to plant
+                    if (currentState == WorkflowState.JVC_PENDING) {
+                        notificationService.notifyWorkflowExtended(savedWorkflow, updatedBy);
+                    }
+                    break;
+                case COMPLETED:
+                    // Additional notification when workflow completes
+                    notificationService.notifyWorkflowCompleted(savedWorkflow, updatedBy);
+                    break;
+                default:
+                    // State change notification already sent above
+                    break;
+            }
+        } catch (Exception e) {
+            logger.warn("Failed to send workflow state change notification for material {}: {}", 
+                       workflow.getMaterialCode(), e.getMessage());
+        }
+        
+        return savedWorkflow;
     }
     
     @Override
@@ -142,9 +213,9 @@ public class WorkflowServiceImpl implements WorkflowService {
     
     @Override
     @Transactional(readOnly = true)
-    public boolean canTransitionTo(String materialId, WorkflowState newState) {
-        MaterialWorkflow workflow = workflowRepository.findByMaterialId(materialId)
-            .orElseThrow(() -> WorkflowNotFoundException.forMaterialId(materialId));
+    public boolean canTransitionTo(String materialCode, WorkflowState newState) {
+        MaterialWorkflow workflow = workflowRepository.findByMaterialCode(materialCode)
+            .stream().findFirst().orElseThrow(() -> WorkflowNotFoundException.forMaterialCode(materialCode));
         
         return workflow.canTransitionTo(newState);
     }
@@ -152,12 +223,32 @@ public class WorkflowServiceImpl implements WorkflowService {
     // Specific workflow actions
     @Override
     public MaterialWorkflow extendToPlant(Long workflowId, String updatedBy) {
-        return transitionToState(workflowId, WorkflowState.PLANT_PENDING, updatedBy);
+        MaterialWorkflow workflow = transitionToState(workflowId, WorkflowState.PLANT_PENDING, updatedBy);
+        
+        // Send specific notification for workflow extension
+        try {
+            notificationService.notifyWorkflowExtended(workflow, updatedBy);
+        } catch (Exception e) {
+            logger.warn("Failed to send workflow extension notification for material {}: {}", 
+                       workflow.getMaterialCode(), e.getMessage());
+        }
+        
+        return workflow;
     }
     
     @Override
-    public MaterialWorkflow extendToPlant(String materialId, String updatedBy) {
-        return transitionToState(materialId, WorkflowState.PLANT_PENDING, updatedBy);
+    public MaterialWorkflow extendToPlant(String materialCode, String updatedBy) {
+        MaterialWorkflow workflow = transitionToState(materialCode, WorkflowState.PLANT_PENDING, updatedBy);
+        
+        // Send specific notification for workflow extension
+        try {
+            notificationService.notifyWorkflowExtended(workflow, updatedBy);
+        } catch (Exception e) {
+            logger.warn("Failed to send workflow extension notification for material {}: {}", 
+                       workflow.getMaterialCode(), e.getMessage());
+        }
+        
+        return workflow;
     }
     
     @Override
@@ -166,16 +257,36 @@ public class WorkflowServiceImpl implements WorkflowService {
             .orElseThrow(() -> new WorkflowNotFoundException(workflowId));
         
         validateWorkflowCompletion(workflow);
-        return transitionToState(workflowId, WorkflowState.COMPLETED, updatedBy);
+        MaterialWorkflow completedWorkflow = transitionToState(workflowId, WorkflowState.COMPLETED, updatedBy);
+        
+        // Send specific notification for workflow completion
+        try {
+            notificationService.notifyWorkflowCompleted(completedWorkflow, updatedBy);
+        } catch (Exception e) {
+            logger.warn("Failed to send workflow completion notification for material {}: {}", 
+                       workflow.getMaterialCode(), e.getMessage());
+        }
+        
+        return completedWorkflow;
     }
     
     @Override
-    public MaterialWorkflow completeWorkflow(String materialId, String updatedBy) {
-        MaterialWorkflow workflow = workflowRepository.findByMaterialId(materialId)
-            .orElseThrow(() -> WorkflowNotFoundException.forMaterialId(materialId));
+    public MaterialWorkflow completeWorkflow(String materialCode, String updatedBy) {
+        MaterialWorkflow workflow = workflowRepository.findByMaterialCode(materialCode)
+            .stream().findFirst().orElseThrow(() -> WorkflowNotFoundException.forMaterialCode(materialCode));
         
         validateWorkflowCompletion(workflow);
-        return transitionToState(materialId, WorkflowState.COMPLETED, updatedBy);
+        MaterialWorkflow completedWorkflow = transitionToState(materialCode, WorkflowState.COMPLETED, updatedBy);
+        
+        // Send specific notification for workflow completion
+        try {
+            notificationService.notifyWorkflowCompleted(completedWorkflow, updatedBy);
+        } catch (Exception e) {
+            logger.warn("Failed to send workflow completion notification for material {}: {}", 
+                       workflow.getMaterialCode(), e.getMessage());
+        }
+        
+        return completedWorkflow;
     }
     
     @Override
@@ -200,8 +311,8 @@ public class WorkflowServiceImpl implements WorkflowService {
     
     @Override
     @Transactional(readOnly = true)
-    public List<MaterialWorkflow> findByAssignedPlant(String plantName) {
-        return workflowRepository.findByAssignedPlant(plantName);
+    public List<MaterialWorkflow> findByPlantCode(String plantCode) {
+        return workflowRepository.findByPlantCode(plantCode);
     }
     
     @Override
@@ -265,7 +376,9 @@ public class WorkflowServiceImpl implements WorkflowService {
     @Override
     public void validateStateTransition(MaterialWorkflow workflow, WorkflowState newState) {
         if (!workflow.canTransitionTo(newState)) {
-            throw new InvalidWorkflowStateException(workflow.getMaterialId(), workflow.getState(), newState);
+            throw new InvalidWorkflowStateException(
+                String.format("Invalid state transition for workflow %s: %s -> %s", workflow.getMaterialCode(), workflow.getState(), newState)
+            );
         }
         
         // Additional business rule validations
@@ -288,7 +401,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         if (workflow.hasOpenQueries()) {
             throw new WorkflowException(
                 String.format("Cannot complete workflow %s: %d open queries remaining", 
-                             workflow.getMaterialId(), workflow.getOpenQueriesCount()));
+                             workflow.getMaterialCode(), workflow.getOpenQueriesCount()));
         }
         
         // Check if workflow is in a valid state for completion
@@ -312,9 +425,9 @@ public class WorkflowServiceImpl implements WorkflowService {
     
     @Override
     @Transactional(readOnly = true)
-    public boolean isWorkflowReadyForCompletion(String materialId) {
-        MaterialWorkflow workflow = workflowRepository.findByMaterialId(materialId)
-            .orElseThrow(() -> WorkflowNotFoundException.forMaterialId(materialId));
+    public boolean isWorkflowReadyForCompletion(String materialCode) {
+        MaterialWorkflow workflow = workflowRepository.findByMaterialCode(materialCode)
+            .stream().findFirst().orElseThrow(() -> WorkflowNotFoundException.forMaterialCode(materialCode));
         
         return isWorkflowReadyForCompletion(workflow);
     }

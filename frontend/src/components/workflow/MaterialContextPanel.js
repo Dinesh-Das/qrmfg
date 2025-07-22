@@ -11,7 +11,8 @@ import {
   Typography,
   Tooltip,
   Badge,
-  Spin
+  Spin,
+  Progress
 } from 'antd';
 import {
   InfoCircleOutlined,
@@ -20,7 +21,9 @@ import {
   CalendarOutlined,
   DownloadOutlined,
   EyeOutlined,
-  WarningOutlined
+  WarningOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined
 } from '@ant-design/icons';
 import { workflowAPI } from '../../services/workflowAPI';
 
@@ -30,7 +33,7 @@ const { Text, Title } = Typography;
 const MaterialContextPanel = ({ workflowData }) => {
   const [loading, setLoading] = useState(false);
   const [jvcDocuments, setJvcDocuments] = useState([]);
-  const [expanded, setExpanded] = useState(['basic', 'workflow']);
+  const [expanded, setExpanded] = useState(['basic', 'workflow', 'jvc-data']);
 
   useEffect(() => {
     if (workflowData?.id) {
@@ -160,8 +163,8 @@ const MaterialContextPanel = ({ workflowData }) => {
           key="basic"
         >
           <Descriptions column={1} size="small">
-            <Descriptions.Item label="Material ID">
-              <Text strong>{workflowData.materialId}</Text>
+            <Descriptions.Item label="Material Code">
+              <Text strong>{workflowData.materialCode}</Text>
             </Descriptions.Item>
             <Descriptions.Item label="Material Name">
               {workflowData.materialName || 'Not specified'}
@@ -239,6 +242,20 @@ const MaterialContextPanel = ({ workflowData }) => {
                 </div>
               </div>
             )}
+
+            {/* Progress indicator */}
+            {workflowData.completionPercentage !== undefined && (
+              <div>
+                <Text strong>Completion Progress:</Text>
+                <div style={{ marginTop: 4 }}>
+                  <Progress
+                    percent={workflowData.completionPercentage}
+                    size="small"
+                    status={workflowData.completionPercentage === 100 ? 'success' : 'active'}
+                  />
+                </div>
+              </div>
+            )}
           </Space>
         </Panel>
 
@@ -308,34 +325,122 @@ const MaterialContextPanel = ({ workflowData }) => {
           )}
         </Panel>
 
-        {/* JVC Material Data */}
+        {/* Enhanced JVC Material Data */}
         <Panel
           header={
             <Space>
               <InfoCircleOutlined />
               <strong>JVC Material Data</strong>
+              <Tooltip title="Information provided by JVC team for questionnaire completion">
+                <InfoCircleOutlined style={{ fontSize: '12px', color: '#1890ff' }} />
+              </Tooltip>
             </Space>
           }
           key="jvc-data"
         >
           <Descriptions column={1} size="small">
             <Descriptions.Item label="Material Category">
-              {workflowData.materialCategory || 'Not specified'}
+              <Tag color="blue">{workflowData.materialCategory || 'Not specified'}</Tag>
             </Descriptions.Item>
-            <Descriptions.Item label="Supplier Code">
-              {workflowData.supplierCode || 'Not specified'}
+            
+            <Descriptions.Item label="Supplier Information">
+              <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                <div>
+                  <Text strong style={{ fontSize: '11px' }}>Supplier Name:</Text>
+                  <div style={{ fontSize: '12px' }}>{workflowData.supplierName || 'Not specified'}</div>
+                </div>
+                <div>
+                  <Text strong style={{ fontSize: '11px' }}>Supplier Code:</Text>
+                  <div style={{ fontSize: '12px' }}>{workflowData.supplierCode || 'Not specified'}</div>
+                </div>
+                <div>
+                  <Text strong style={{ fontSize: '11px' }}>Contact Info:</Text>
+                  <div style={{ fontSize: '12px' }}>{workflowData.supplierContact || 'Not provided'}</div>
+                </div>
+              </Space>
             </Descriptions.Item>
-            <Descriptions.Item label="Purchase Order">
-              {workflowData.purchaseOrder || 'Not specified'}
+            
+            <Descriptions.Item label="Purchase Information">
+              <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                <div>
+                  <Text strong style={{ fontSize: '11px' }}>Purchase Order:</Text>
+                  <div style={{ fontSize: '12px' }}>{workflowData.purchaseOrder || 'Not specified'}</div>
+                </div>
+                <div>
+                  <Text strong style={{ fontSize: '11px' }}>Quantity Ordered:</Text>
+                  <div style={{ fontSize: '12px' }}>{workflowData.quantityOrdered || 'Not specified'}</div>
+                </div>
+                <div>
+                  <Text strong style={{ fontSize: '11px' }}>Expected Delivery:</Text>
+                  <div style={{ fontSize: '12px' }}>{workflowData.expectedDelivery ? formatDate(workflowData.expectedDelivery) : 'Not specified'}</div>
+                </div>
+              </Space>
             </Descriptions.Item>
-            <Descriptions.Item label="Expected Usage">
-              {workflowData.expectedUsage || 'Not specified'}
+            
+            <Descriptions.Item label="Usage & Application">
+              <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                <div>
+                  <Text strong style={{ fontSize: '11px' }}>Expected Usage:</Text>
+                  <div style={{ fontSize: '12px' }}>{workflowData.expectedUsage || 'Not specified'}</div>
+                </div>
+                <div>
+                  <Text strong style={{ fontSize: '11px' }}>Application Area:</Text>
+                  <div style={{ fontSize: '12px' }}>{workflowData.applicationArea || 'Not specified'}</div>
+                </div>
+                <div>
+                  <Text strong style={{ fontSize: '11px' }}>Process Requirements:</Text>
+                  <div style={{ fontSize: '12px' }}>{workflowData.processRequirements || 'Standard processing'}</div>
+                </div>
+              </Space>
             </Descriptions.Item>
+            
             <Descriptions.Item label="Regulatory Requirements">
-              {workflowData.regulatoryRequirements || 'Standard compliance required'}
+              <div style={{ 
+                padding: '6px 8px', 
+                backgroundColor: '#fff7e6', 
+                border: '1px solid #ffd591',
+                borderRadius: '4px',
+                fontSize: '12px'
+              }}>
+                {workflowData.regulatoryRequirements || 'Standard compliance required'}
+              </div>
             </Descriptions.Item>
+            
             <Descriptions.Item label="Special Instructions">
-              {workflowData.specialInstructions || 'None'}
+              {workflowData.specialInstructions ? (
+                <div style={{ 
+                  padding: '6px 8px', 
+                  backgroundColor: '#f6ffed', 
+                  border: '1px solid #b7eb8f',
+                  borderRadius: '4px',
+                  fontSize: '12px'
+                }}>
+                  {workflowData.specialInstructions}
+                </div>
+              ) : (
+                <Text type="secondary" style={{ fontSize: '12px' }}>None</Text>
+              )}
+            </Descriptions.Item>
+            
+            <Descriptions.Item label="Priority & Impact">
+              <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                <div>
+                  <Text strong style={{ fontSize: '11px' }}>Urgency Level:</Text>
+                  <div style={{ marginTop: 2 }}>
+                    <Tag color={workflowData.urgencyLevel === 'HIGH' ? 'red' : workflowData.urgencyLevel === 'MEDIUM' ? 'orange' : 'green'}>
+                      {workflowData.urgencyLevel || 'NORMAL'}
+                    </Tag>
+                  </div>
+                </div>
+                <div>
+                  <Text strong style={{ fontSize: '11px' }}>Business Impact:</Text>
+                  <div style={{ fontSize: '12px', marginTop: 2 }}>{workflowData.businessImpact || 'Standard processing'}</div>
+                </div>
+                <div>
+                  <Text strong style={{ fontSize: '11px' }}>Cost Center:</Text>
+                  <div style={{ fontSize: '12px', marginTop: 2 }}>{workflowData.costCenter || 'Not specified'}</div>
+                </div>
+              </Space>
             </Descriptions.Item>
           </Descriptions>
           
@@ -348,12 +453,47 @@ const MaterialContextPanel = ({ workflowData }) => {
                 backgroundColor: '#f6ffed', 
                 border: '1px solid #b7eb8f',
                 borderRadius: '4px',
-                fontSize: '12px'
+                fontSize: '12px',
+                whiteSpace: 'pre-wrap'
               }}>
                 {workflowData.jvcNotes}
               </div>
             </div>
           )}
+
+          {/* Known Material Properties */}
+          {workflowData.knownProperties && Object.keys(workflowData.knownProperties).length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <Text strong style={{ fontSize: '12px' }}>Known Properties:</Text>
+              <div style={{ 
+                marginTop: 4, 
+                padding: '8px', 
+                backgroundColor: '#f0f5ff', 
+                border: '1px solid #adc6ff',
+                borderRadius: '4px',
+                fontSize: '11px'
+              }}>
+                {Object.entries(workflowData.knownProperties).map(([key, value]) => (
+                  <div key={key} style={{ marginBottom: 2 }}>
+                    <strong>{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}:</strong> {value}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Additional Context for Plant Team */}
+          <Divider style={{ margin: '12px 0 8px 0' }} />
+          <div style={{ fontSize: '11px', color: '#666' }}>
+            <Text strong>For Plant Team Reference:</Text>
+            <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
+              <li>Review all JVC-provided information before starting questionnaire</li>
+              <li>Use this context when raising queries to other teams</li>
+              <li>Reference material ID and supplier details in communications</li>
+              <li>Contact JVC team for clarification on any provided data</li>
+              <li>Consider regulatory requirements when completing safety sections</li>
+            </ul>
+          </div>
         </Panel>
 
         {/* Material Specifications */}

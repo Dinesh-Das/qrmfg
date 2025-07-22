@@ -4,6 +4,7 @@ import com.cqs.qrmfg.config.NotificationConfig;
 import com.cqs.qrmfg.dto.NotificationRequest;
 import com.cqs.qrmfg.dto.NotificationResult;
 import com.cqs.qrmfg.model.MaterialWorkflow;
+import com.cqs.qrmfg.config.NotificationWebSocketHandler;
 import com.cqs.qrmfg.model.NotificationPreference;
 import com.cqs.qrmfg.model.Query;
 import com.cqs.qrmfg.model.WorkflowState;
@@ -41,6 +42,9 @@ public class NotificationServiceImpl implements NotificationService {
     
     @Autowired
     private NotificationPreferenceRepository preferenceRepository;
+    
+    @Autowired
+    private NotificationWebSocketHandler webSocketHandler;
     
     // In-memory storage for failed notifications (in production, use database or Redis)
     private final Map<String, NotificationRequest> failedNotifications = new ConcurrentHashMap<>();
@@ -125,21 +129,51 @@ public class NotificationServiceImpl implements NotificationService {
     public void notifyWorkflowCreated(MaterialWorkflow workflow) {
         Map<String, Object> data = new HashMap<>();
         data.put("workflow", workflow);
-        data.put("materialId", workflow.getMaterialId());
+        data.put("materialCode", workflow.getMaterialCode());
         data.put("materialName", workflow.getMaterialName());
         data.put("assignedPlant", workflow.getAssignedPlant());
         data.put("initiatedBy", workflow.getInitiatedBy());
         
-        // Notify JVC team
-        notifyTeam("JVC", "New Workflow Created", 
-                String.format("New workflow created for material %s (%s)", 
-                        workflow.getMaterialId(), workflow.getMaterialName()));
+        // Send real-time notification to JVC team
+        sendRealTimeNotificationToTeam("TEAM_JVC", "workflow_created", 
+                "New Workflow Created", 
+                String.format("New MSDS workflow created for material %s", workflow.getMaterialCode()),
+                workflow);
         
-        // Notify assigned plant
+        // Notify JVC team with template
+        List<NotificationPreference> jvcPreferences = preferenceRepository.findActivePreferencesForType("TEAM_JVC");
+        for (NotificationPreference pref : jvcPreferences) {
+            if ("EMAIL".equalsIgnoreCase(pref.getChannel())) {
+                NotificationRequest request = new NotificationRequest();
+                request.setType("EMAIL");
+                request.setRecipients(Collections.singletonList(getRecipientAddress(pref.getUsername(), pref)));
+                request.setSubject("New MSDS Workflow Created - " + workflow.getMaterialCode());
+                request.setTemplateName("notifications/workflow-created");
+                request.setTemplateData(data);
+                sendNotificationAsync(request);
+            }
+        }
+        
+        // Notify assigned plant with template
         if (workflow.getAssignedPlant() != null) {
-            notifyPlant(workflow.getAssignedPlant(), "New Material Assignment", 
-                    String.format("Material %s has been assigned to your plant for MSDS workflow", 
-                            workflow.getMaterialId()));
+            // Send real-time notification to plant team
+            sendRealTimeNotificationToTeam("TEAM_PLANT_" + workflow.getAssignedPlant(), "workflow_created", 
+                    "New Material Assignment", 
+                    String.format("Material %s has been assigned to your plant for MSDS workflow", workflow.getMaterialCode()),
+                    workflow);
+            
+            List<NotificationPreference> plantPreferences = preferenceRepository.findActivePreferencesForType("TEAM_PLANT_" + workflow.getAssignedPlant());
+            for (NotificationPreference pref : plantPreferences) {
+                if ("EMAIL".equalsIgnoreCase(pref.getChannel())) {
+                    NotificationRequest request = new NotificationRequest();
+                    request.setType("EMAIL");
+                    request.setRecipients(Collections.singletonList(getRecipientAddress(pref.getUsername(), pref)));
+                    request.setSubject("New Material Assignment - " + workflow.getMaterialCode());
+                    request.setTemplateName("notifications/workflow-created");
+                    request.setTemplateData(data);
+                    sendNotificationAsync(request);
+                }
+            }
         }
     }
     
@@ -149,9 +183,25 @@ public class NotificationServiceImpl implements NotificationService {
         data.put("workflow", workflow);
         data.put("extendedBy", extendedBy);
         
-        notifyPlant(workflow.getAssignedPlant(), "Workflow Extended to Plant", 
-                String.format("Material %s workflow has been extended to your plant. Please complete the questionnaire.", 
-                        workflow.getMaterialId()));
+        // Send real-time notification to plant team
+        sendRealTimeNotificationToTeam("TEAM_PLANT_" + workflow.getAssignedPlant(), "workflow_extended", 
+                "Workflow Extended to Plant", 
+                String.format("Material %s workflow has been extended to your plant. Please complete the questionnaire.", workflow.getMaterialCode()),
+                workflow);
+        
+        // Notify plant team with template
+        List<NotificationPreference> plantPreferences = preferenceRepository.findActivePreferencesForType("TEAM_PLANT_" + workflow.getAssignedPlant());
+        for (NotificationPreference pref : plantPreferences) {
+            if ("EMAIL".equalsIgnoreCase(pref.getChannel())) {
+                NotificationRequest request = new NotificationRequest();
+                request.setType("EMAIL");
+                request.setRecipients(Collections.singletonList(getRecipientAddress(pref.getUsername(), pref)));
+                request.setSubject("Workflow Extended to Plant - " + workflow.getMaterialCode());
+                request.setTemplateName("notifications/workflow-extended");
+                request.setTemplateData(data);
+                sendNotificationAsync(request);
+            }
+        }
     }
     
     @Override
@@ -160,12 +210,33 @@ public class NotificationServiceImpl implements NotificationService {
         data.put("workflow", workflow);
         data.put("completedBy", completedBy);
         
-        // Notify all stakeholders
-        notifyUser(workflow.getInitiatedBy(), "Workflow Completed", 
-                String.format("Workflow for material %s has been completed", workflow.getMaterialId()));
+        // Notify workflow initiator
+        List<NotificationPreference> initiatorPrefs = preferenceRepository.findActivePreferencesForUser(workflow.getInitiatedBy());
+        for (NotificationPreference pref : initiatorPrefs) {
+            if ("EMAIL".equalsIgnoreCase(pref.getChannel())) {
+                NotificationRequest request = new NotificationRequest();
+                request.setType("EMAIL");
+                request.setRecipients(Collections.singletonList(getRecipientAddress(pref.getUsername(), pref)));
+                request.setSubject("Workflow Completed - " + workflow.getMaterialCode());
+                request.setTemplateName("notifications/workflow-completed");
+                request.setTemplateData(data);
+                sendNotificationAsync(request);
+            }
+        }
         
-        notifyPlant(workflow.getAssignedPlant(), "Workflow Completed", 
-                String.format("MSDS workflow for material %s has been completed", workflow.getMaterialId()));
+        // Notify plant team
+        List<NotificationPreference> plantPreferences = preferenceRepository.findActivePreferencesForType("TEAM_PLANT_" + workflow.getAssignedPlant());
+        for (NotificationPreference pref : plantPreferences) {
+            if ("EMAIL".equalsIgnoreCase(pref.getChannel())) {
+                NotificationRequest request = new NotificationRequest();
+                request.setType("EMAIL");
+                request.setRecipients(Collections.singletonList(getRecipientAddress(pref.getUsername(), pref)));
+                request.setSubject("Workflow Completed - " + workflow.getMaterialCode());
+                request.setTemplateName("notifications/workflow-completed");
+                request.setTemplateData(data);
+                sendNotificationAsync(request);
+            }
+        }
     }
     
     @Override
@@ -176,98 +247,234 @@ public class NotificationServiceImpl implements NotificationService {
         data.put("currentState", workflow.getState());
         data.put("changedBy", changedBy);
         
-        String message = String.format("Workflow for material %s changed from %s to %s", 
-                workflow.getMaterialId(), previousState.getDisplayName(), workflow.getState().getDisplayName());
-        
-        // Notify relevant teams based on new state
+        // Notify relevant teams based on new state with template
         switch (workflow.getState()) {
             case PLANT_PENDING:
-                notifyPlant(workflow.getAssignedPlant(), "Action Required", message);
+                List<NotificationPreference> plantPrefs = preferenceRepository.findActivePreferencesForType("TEAM_PLANT_" + workflow.getAssignedPlant());
+                for (NotificationPreference pref : plantPrefs) {
+                    if ("EMAIL".equalsIgnoreCase(pref.getChannel())) {
+                        NotificationRequest request = new NotificationRequest();
+                        request.setType("EMAIL");
+                        request.setRecipients(Collections.singletonList(getRecipientAddress(pref.getUsername(), pref)));
+                        request.setSubject("Action Required - " + workflow.getMaterialCode());
+                        request.setTemplateName("notifications/workflow-state-changed");
+                        request.setTemplateData(data);
+                        sendNotificationAsync(request);
+                    }
+                }
                 break;
             case CQS_PENDING:
-                notifyTeam("CQS", "Query Resolution Required", message);
+                List<NotificationPreference> cqsPrefs = preferenceRepository.findActivePreferencesForType("TEAM_CQS");
+                for (NotificationPreference pref : cqsPrefs) {
+                    if ("EMAIL".equalsIgnoreCase(pref.getChannel())) {
+                        NotificationRequest request = new NotificationRequest();
+                        request.setType("EMAIL");
+                        request.setRecipients(Collections.singletonList(getRecipientAddress(pref.getUsername(), pref)));
+                        request.setSubject("Query Resolution Required - " + workflow.getMaterialCode());
+                        request.setTemplateName("notifications/workflow-state-changed");
+                        request.setTemplateData(data);
+                        sendNotificationAsync(request);
+                    }
+                }
                 break;
             case TECH_PENDING:
-                notifyTeam("TECH", "Query Resolution Required", message);
+                List<NotificationPreference> techPrefs = preferenceRepository.findActivePreferencesForType("TEAM_TECH");
+                for (NotificationPreference pref : techPrefs) {
+                    if ("EMAIL".equalsIgnoreCase(pref.getChannel())) {
+                        NotificationRequest request = new NotificationRequest();
+                        request.setType("EMAIL");
+                        request.setRecipients(Collections.singletonList(getRecipientAddress(pref.getUsername(), pref)));
+                        request.setSubject("Query Resolution Required - " + workflow.getMaterialCode());
+                        request.setTemplateName("notifications/workflow-state-changed");
+                        request.setTemplateData(data);
+                        sendNotificationAsync(request);
+                    }
+                }
                 break;
             case COMPLETED:
-                notifyWorkflowCompleted(workflow, changedBy);
+                // Completion notifications are handled separately
                 break;
         }
     }
     
     @Override
     public void notifyWorkflowOverdue(MaterialWorkflow workflow) {
-        String message = String.format("URGENT: Workflow for material %s is overdue (%d days pending)", 
-                workflow.getMaterialId(), workflow.getDaysPending());
+        Map<String, Object> data = new HashMap<>();
+        data.put("workflow", workflow);
         
-        // Notify based on current state
+        // Notify based on current state with template
+        String teamType = "";
         switch (workflow.getState()) {
             case JVC_PENDING:
-                notifyTeam("JVC", "Overdue Workflow", message);
+                teamType = "TEAM_JVC";
                 break;
             case PLANT_PENDING:
-                notifyPlant(workflow.getAssignedPlant(), "Overdue Workflow", message);
+                teamType = "TEAM_PLANT_" + workflow.getAssignedPlant();
                 break;
             case CQS_PENDING:
-                notifyTeam("CQS", "Overdue Query Resolution", message);
+                teamType = "TEAM_CQS";
                 break;
             case TECH_PENDING:
-                notifyTeam("TECH", "Overdue Query Resolution", message);
+                teamType = "TEAM_TECH";
                 break;
         }
         
+        if (!teamType.isEmpty()) {
+            List<NotificationPreference> teamPrefs = preferenceRepository.findActivePreferencesForType(teamType);
+            for (NotificationPreference pref : teamPrefs) {
+                if ("EMAIL".equalsIgnoreCase(pref.getChannel())) {
+                    NotificationRequest request = new NotificationRequest();
+                    request.setType("EMAIL");
+                    request.setRecipients(Collections.singletonList(getRecipientAddress(pref.getUsername(), pref)));
+                    request.setSubject("URGENT: Overdue Workflow - " + workflow.getMaterialCode());
+                    request.setTemplateName("notifications/workflow-overdue");
+                    request.setTemplateData(data);
+                    sendNotificationAsync(request);
+                }
+            }
+        }
+        
         // Always notify admins for overdue workflows
-        notifyAdmins("Overdue Workflow Alert", message);
+        List<NotificationPreference> adminPrefs = preferenceRepository.findActivePreferencesForType("TEAM_ADMIN");
+        for (NotificationPreference pref : adminPrefs) {
+            if ("EMAIL".equalsIgnoreCase(pref.getChannel())) {
+                NotificationRequest request = new NotificationRequest();
+                request.setType("EMAIL");
+                request.setRecipients(Collections.singletonList(getRecipientAddress(pref.getUsername(), pref)));
+                request.setSubject("URGENT: Overdue Workflow Alert - " + workflow.getMaterialCode());
+                request.setTemplateName("notifications/workflow-overdue");
+                request.setTemplateData(data);
+                sendNotificationAsync(request);
+            }
+        }
     }
     
     // Query-specific notification methods
     @Override
     public void notifyQueryRaised(Query query) {
-        String message = String.format("New query raised for material %s: %s", 
-                query.getWorkflow().getMaterialId(), query.getQuestion());
+        Map<String, Object> data = new HashMap<>();
+        data.put("query", query);
         
-        // Notify assigned team
-        notifyTeam(query.getAssignedTeam().name(), "New Query Assigned", message);
+        // Notify assigned team with template
+        String teamType = "TEAM_" + query.getAssignedTeam().name();
+        List<NotificationPreference> teamPrefs = preferenceRepository.findActivePreferencesForType(teamType);
+        for (NotificationPreference pref : teamPrefs) {
+            if ("EMAIL".equalsIgnoreCase(pref.getChannel())) {
+                NotificationRequest request = new NotificationRequest();
+                request.setType("EMAIL");
+                request.setRecipients(Collections.singletonList(getRecipientAddress(pref.getUsername(), pref)));
+                request.setSubject("New Query Assigned - " + query.getWorkflow().getMaterialCode());
+                request.setTemplateName("notifications/query-raised");
+                request.setTemplateData(data);
+                sendNotificationAsync(request);
+            }
+        }
         
-        // Notify query raiser
-        notifyUser(query.getRaisedBy(), "Query Submitted", 
-                String.format("Your query for material %s has been submitted to %s team", 
-                        query.getWorkflow().getMaterialId(), query.getAssignedTeam().getDisplayName()));
+        // Notify query raiser with template
+        List<NotificationPreference> raiserPrefs = preferenceRepository.findActivePreferencesForUser(query.getRaisedBy());
+        for (NotificationPreference pref : raiserPrefs) {
+            if ("EMAIL".equalsIgnoreCase(pref.getChannel())) {
+                NotificationRequest request = new NotificationRequest();
+                request.setType("EMAIL");
+                request.setRecipients(Collections.singletonList(getRecipientAddress(pref.getUsername(), pref)));
+                request.setSubject("Query Submitted - " + query.getWorkflow().getMaterialCode());
+                request.setTemplateName("notifications/query-raised");
+                request.setTemplateData(data);
+                sendNotificationAsync(request);
+            }
+        }
     }
     
     @Override
     public void notifyQueryResolved(Query query) {
-        String message = String.format("Query resolved for material %s: %s\nResponse: %s", 
-                query.getWorkflow().getMaterialId(), query.getQuestion(), query.getResponse());
+        Map<String, Object> data = new HashMap<>();
+        data.put("query", query);
         
-        // Notify query raiser
-        notifyUser(query.getRaisedBy(), "Query Resolved", message);
+        // Notify query raiser with template
+        List<NotificationPreference> raiserPrefs = preferenceRepository.findActivePreferencesForUser(query.getRaisedBy());
+        for (NotificationPreference pref : raiserPrefs) {
+            if ("EMAIL".equalsIgnoreCase(pref.getChannel())) {
+                NotificationRequest request = new NotificationRequest();
+                request.setType("EMAIL");
+                request.setRecipients(Collections.singletonList(getRecipientAddress(pref.getUsername(), pref)));
+                request.setSubject("Query Resolved - " + query.getWorkflow().getMaterialCode());
+                request.setTemplateName("notifications/query-resolved");
+                request.setTemplateData(data);
+                sendNotificationAsync(request);
+            }
+        }
         
-        // Notify plant team
-        notifyPlant(query.getWorkflow().getAssignedPlant(), "Query Resolved", 
-                String.format("Query for material %s has been resolved by %s team", 
-                        query.getWorkflow().getMaterialId(), query.getAssignedTeam().getDisplayName()));
+        // Notify plant team with template
+        String plantTeamType = "TEAM_PLANT_" + query.getWorkflow().getAssignedPlant();
+        List<NotificationPreference> plantPrefs = preferenceRepository.findActivePreferencesForType(plantTeamType);
+        for (NotificationPreference pref : plantPrefs) {
+            if ("EMAIL".equalsIgnoreCase(pref.getChannel())) {
+                NotificationRequest request = new NotificationRequest();
+                request.setType("EMAIL");
+                request.setRecipients(Collections.singletonList(getRecipientAddress(pref.getUsername(), pref)));
+                request.setSubject("Query Resolved - " + query.getWorkflow().getMaterialCode());
+                request.setTemplateName("notifications/query-resolved");
+                request.setTemplateData(data);
+                sendNotificationAsync(request);
+            }
+        }
     }
     
     @Override
     public void notifyQueryAssigned(Query query, String assignedBy) {
-        String message = String.format("Query assigned to %s team for material %s: %s", 
-                query.getAssignedTeam().getDisplayName(), query.getWorkflow().getMaterialId(), query.getQuestion());
+        Map<String, Object> data = new HashMap<>();
+        data.put("query", query);
+        data.put("assignedBy", assignedBy);
         
-        notifyTeam(query.getAssignedTeam().name(), "Query Assigned", message);
+        // Notify assigned team with template
+        String teamType = "TEAM_" + query.getAssignedTeam().name();
+        List<NotificationPreference> teamPrefs = preferenceRepository.findActivePreferencesForType(teamType);
+        for (NotificationPreference pref : teamPrefs) {
+            if ("EMAIL".equalsIgnoreCase(pref.getChannel())) {
+                NotificationRequest request = new NotificationRequest();
+                request.setType("EMAIL");
+                request.setRecipients(Collections.singletonList(getRecipientAddress(pref.getUsername(), pref)));
+                request.setSubject("Query Assigned - " + query.getWorkflow().getMaterialCode());
+                request.setTemplateName("notifications/query-assigned");
+                request.setTemplateData(data);
+                sendNotificationAsync(request);
+            }
+        }
     }
     
     @Override
     public void notifyQueryOverdue(Query query) {
-        String message = String.format("URGENT: Query for material %s is overdue (%d days open): %s", 
-                query.getWorkflow().getMaterialId(), query.getDaysOpen(), query.getQuestion());
+        Map<String, Object> data = new HashMap<>();
+        data.put("query", query);
         
-        // Notify assigned team
-        notifyTeam(query.getAssignedTeam().name(), "Overdue Query", message);
+        // Notify assigned team with template
+        String teamType = "TEAM_" + query.getAssignedTeam().name();
+        List<NotificationPreference> teamPrefs = preferenceRepository.findActivePreferencesForType(teamType);
+        for (NotificationPreference pref : teamPrefs) {
+            if ("EMAIL".equalsIgnoreCase(pref.getChannel())) {
+                NotificationRequest request = new NotificationRequest();
+                request.setType("EMAIL");
+                request.setRecipients(Collections.singletonList(getRecipientAddress(pref.getUsername(), pref)));
+                request.setSubject("URGENT: Overdue Query - " + query.getWorkflow().getMaterialCode());
+                request.setTemplateName("notifications/query-overdue");
+                request.setTemplateData(data);
+                sendNotificationAsync(request);
+            }
+        }
         
-        // Notify admins
-        notifyAdmins("Overdue Query Alert", message);
+        // Notify admins with template
+        List<NotificationPreference> adminPrefs = preferenceRepository.findActivePreferencesForType("TEAM_ADMIN");
+        for (NotificationPreference pref : adminPrefs) {
+            if ("EMAIL".equalsIgnoreCase(pref.getChannel())) {
+                NotificationRequest request = new NotificationRequest();
+                request.setType("EMAIL");
+                request.setRecipients(Collections.singletonList(getRecipientAddress(pref.getUsername(), pref)));
+                request.setSubject("URGENT: Overdue Query Alert - " + query.getWorkflow().getMaterialCode());
+                request.setTemplateName("notifications/query-overdue");
+                request.setTemplateData(data);
+                sendNotificationAsync(request);
+            }
+        }
     }
     
     // User and team notification methods
@@ -397,6 +604,42 @@ public class NotificationServiceImpl implements NotificationService {
     }
     
     // Private helper methods
+    private void sendRealTimeNotification(String username, String type, String title, String message, Object data) {
+        try {
+            Map<String, Object> notification = new HashMap<>();
+            notification.put("type", type);
+            notification.put("title", title);
+            notification.put("message", message);
+            notification.put("timestamp", LocalDateTime.now().toString());
+            notification.put("data", data);
+            
+            webSocketHandler.sendNotificationToUser(username, notification);
+        } catch (Exception e) {
+            logger.warn("Failed to send real-time notification to user {}: {}", username, e.getMessage());
+        }
+    }
+    
+    private void sendRealTimeNotificationToTeam(String teamType, String type, String title, String message, Object data) {
+        try {
+            List<NotificationPreference> teamPreferences = preferenceRepository.findActivePreferencesForType(teamType);
+            List<String> usernames = teamPreferences.stream()
+                    .map(NotificationPreference::getUsername)
+                    .distinct()
+                    .collect(Collectors.toList());
+            
+            Map<String, Object> notification = new HashMap<>();
+            notification.put("type", type);
+            notification.put("title", title);
+            notification.put("message", message);
+            notification.put("timestamp", LocalDateTime.now().toString());
+            notification.put("data", data);
+            
+            webSocketHandler.sendNotificationToUsers(usernames, notification);
+        } catch (Exception e) {
+            logger.warn("Failed to send real-time notification to team {}: {}", teamType, e.getMessage());
+        }
+    }
+    
     private NotificationResult sendEmailNotification(NotificationRequest request) {
         if (!isEmailEnabled()) {
             return NotificationResult.failure("Email notifications are disabled");

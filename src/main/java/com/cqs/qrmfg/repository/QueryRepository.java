@@ -26,11 +26,11 @@ public interface QueryRepository extends JpaRepository<Query, Long> {
     List<Query> findByStatusAndPriorityLevel(QueryStatus status, String priorityLevel);
     
     // Material-based queries
-    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q WHERE q.workflow.materialId = :materialId")
-    List<Query> findByMaterialId(@Param("materialId") String materialId);
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q WHERE q.workflow.materialCode = :materialCode")
+    List<Query> findByMaterialCode(@Param("materialCode") String materialCode);
     
-    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q WHERE q.workflow.materialId = :materialId AND q.status = :status")
-    List<Query> findByMaterialIdAndStatus(@Param("materialId") String materialId, @Param("status") QueryStatus status);
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q WHERE q.workflow.materialCode = :materialCode AND q.status = :status")
+    List<Query> findByMaterialCodeAndStatus(@Param("materialCode") String materialCode, @Param("status") QueryStatus status);
     
     // Time-based queries
     List<Query> findByCreatedAtAfter(LocalDateTime dateTime);
@@ -134,4 +134,101 @@ public interface QueryRepository extends JpaRepository<Query, Long> {
     
     @org.springframework.data.jpa.repository.Query("SELECT q.assignedTeam, COUNT(q) FROM Query q WHERE q.status = 'OPEN' GROUP BY q.assignedTeam")
     List<Object[]> countOpenQueriesByTeamGrouped();
+    
+    // Team inbox queries including JVC (duplicate methods removed)
+    
+    // JVC-specific query methods
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q WHERE q.assignedTeam = 'JVC' AND q.status = 'OPEN' " +
+             "ORDER BY q.createdAt ASC")
+    List<Query> findJVCInboxQueries();
+    
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q WHERE q.assignedTeam = 'JVC' AND q.status = 'RESOLVED' " +
+             "ORDER BY q.resolvedAt DESC")
+    List<Query> findJVCResolvedQueries();
+    
+    // Enhanced filtering and search capabilities
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q JOIN q.workflow w WHERE " +
+           "(:team IS NULL OR q.assignedTeam = :team) AND " +
+           "(:status IS NULL OR q.status = :status) AND " +
+           "(:projectCode IS NULL OR w.projectCode = :projectCode) AND " +
+           "(:materialCode IS NULL OR w.materialCode = :materialCode) AND " +
+           "(:plantCode IS NULL OR w.plantCode = :plantCode) " +
+           "ORDER BY q.createdAt DESC")
+    List<Query> findQueriesWithFilters(
+        @Param("team") QueryTeam team,
+        @Param("status") QueryStatus status,
+        @Param("projectCode") String projectCode,
+        @Param("materialCode") String materialCode,
+        @Param("plantCode") String plantCode);
+    
+    // Search queries by content
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q WHERE UPPER(q.question) LIKE UPPER(CONCAT('%', :searchTerm, '%')) " +
+           "OR UPPER(q.response) LIKE UPPER(CONCAT('%', :searchTerm, '%')) " +
+           "ORDER BY q.createdAt DESC")
+    List<Query> searchQueriesByContent(@Param("searchTerm") String searchTerm);
+
+    // Enhanced JVC query support
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q JOIN q.workflow w WHERE q.assignedTeam = 'JVC' AND q.status = 'OPEN' AND " +
+           "(:projectCode IS NULL OR w.projectCode = :projectCode) AND " +
+           "(:materialCode IS NULL OR w.materialCode = :materialCode) AND " +
+           "(:plantCode IS NULL OR w.plantCode = :plantCode) " +
+           "ORDER BY q.createdAt ASC")
+    List<Query> findJVCInboxQueriesWithFilters(
+        @Param("projectCode") String projectCode,
+        @Param("materialCode") String materialCode,
+        @Param("plantCode") String plantCode);
+
+    // Advanced filtering and search capabilities
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q JOIN q.workflow w WHERE " +
+           "(:team IS NULL OR q.assignedTeam = :team) AND " +
+           "(:status IS NULL OR q.status = :status) AND " +
+           "(:projectCode IS NULL OR w.projectCode = :projectCode) AND " +
+           "(:materialCode IS NULL OR w.materialCode = :materialCode) AND " +
+           "(:plantCode IS NULL OR w.plantCode = :plantCode) AND " +
+           "(:blockId IS NULL OR w.blockId = :blockId) AND " +
+           "(:raisedBy IS NULL OR q.raisedBy = :raisedBy) AND " +
+           "(:priorityLevel IS NULL OR q.priorityLevel = :priorityLevel) AND " +
+           "(:stepNumber IS NULL OR q.stepNumber = :stepNumber) " +
+           "ORDER BY q.createdAt DESC")
+    List<Query> findQueriesWithAdvancedFilters(
+        @Param("team") QueryTeam team,
+        @Param("status") QueryStatus status,
+        @Param("projectCode") String projectCode,
+        @Param("materialCode") String materialCode,
+        @Param("plantCode") String plantCode,
+        @Param("blockId") String blockId,
+        @Param("raisedBy") String raisedBy,
+        @Param("priorityLevel") String priorityLevel,
+        @Param("stepNumber") Integer stepNumber);
+
+    // Query analytics and metrics
+    @org.springframework.data.jpa.repository.Query("SELECT q.assignedTeam, q.status, COUNT(q) FROM Query q GROUP BY q.assignedTeam, q.status ORDER BY q.assignedTeam, q.status")
+    List<Object[]> getQueryCountByTeamAndStatus();
+
+    @org.springframework.data.jpa.repository.Query("SELECT q.priorityLevel, COUNT(q) FROM Query q WHERE q.status = 'OPEN' GROUP BY q.priorityLevel ORDER BY q.priorityLevel")
+    List<Object[]> getOpenQueryCountByPriority();
+
+    @org.springframework.data.jpa.repository.Query("SELECT q.stepNumber, COUNT(q) FROM Query q GROUP BY q.stepNumber ORDER BY q.stepNumber")
+    List<Object[]> getQueryCountByStep();
+
+    // Query resolution performance metrics
+    @org.springframework.data.jpa.repository.Query(value = "SELECT assigned_team, AVG((resolved_at - created_at) * 24) as avg_hours, COUNT(*) as total_resolved " +
+           "FROM qrmfg_queries WHERE query_status = 'RESOLVED' AND resolved_at >= :startDate " +
+           "GROUP BY assigned_team ORDER BY avg_hours", nativeQuery = true)
+    List<Object[]> getQueryResolutionMetrics(@Param("startDate") LocalDateTime startDate);
+
+    // Bulk operations support
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q WHERE q.id IN :queryIds")
+    List<Query> findByIds(@Param("queryIds") List<Long> queryIds);
+
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q WHERE q.workflow.id IN :workflowIds AND q.status = 'OPEN'")
+    List<Query> findOpenQueriesByWorkflowIds(@Param("workflowIds") List<Long> workflowIds);
+
+    // Query escalation support
+    @org.springframework.data.jpa.repository.Query(value = "SELECT * FROM qrmfg_queries WHERE query_status = 'OPEN' AND priority_level IN ('HIGH', 'URGENT') AND (SYSDATE - created_at) > :escalationHours/24", nativeQuery = true)
+    List<Query> findQueriesForEscalation(@Param("escalationHours") int escalationHours);
+
+    // Team workload analysis
+    @org.springframework.data.jpa.repository.Query(value = "SELECT assigned_team, COUNT(*) as openCount, AVG((SYSDATE - created_at) * 24) as avgAgeHours FROM qrmfg_queries WHERE query_status = 'OPEN' GROUP BY assigned_team", nativeQuery = true)
+    List<Object[]> getTeamWorkloadMetrics();
 }

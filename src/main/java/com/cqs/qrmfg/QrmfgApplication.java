@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import com.cqs.qrmfg.model.User;
 import com.cqs.qrmfg.model.Role;
 import com.cqs.qrmfg.repository.UserRepository;
@@ -20,6 +21,7 @@ import java.util.List;
 
 // Security configuration will be implemented in com.cqs.qrmfg.config according to Spring Security and JWT best practices.
 @SpringBootApplication
+@EnableScheduling
 public class QrmfgApplication {
 
 	@Autowired

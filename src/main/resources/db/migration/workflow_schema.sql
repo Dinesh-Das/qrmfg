@@ -5,15 +5,50 @@
 CREATE SEQUENCE MATERIAL_WORKFLOW_SEQ START WITH 1 INCREMENT BY 1;
 CREATE SEQUENCE QUERY_SEQ START WITH 1 INCREMENT BY 1;
 CREATE SEQUENCE QUESTIONNAIRE_RESPONSE_SEQ START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE WORKFLOW_DOCUMENT_SEQ START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE QUESTIONNAIRE_MASTER_SEQ START WITH 1 INCREMENT BY 1;
 CREATE SEQUENCE REVINFO_SEQ START WITH 1 INCREMENT BY 1;
 CREATE SEQUENCE NOTIFICATION_PREF_SEQ START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE SCREEN_ROLE_MAPPING_SEQ START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE RBAC_USER_SESSION_SEQ START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE RBAC_USER_SEQ START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE RBAC_AUDIT_LOG_SEQ START WITH 1 INCREMENT BY 1;
+
+-- Questionnaire Master table
+CREATE TABLE qrmfg_questionnaire_master (
+    id NUMBER PRIMARY KEY,
+    sr_no NUMBER,
+    checklist_text VARCHAR2(2000),
+    comments VARCHAR2(2000),
+    responsible VARCHAR2(100),
+    question_id VARCHAR2(50),
+    question_text VARCHAR2(1000),
+    question_type VARCHAR2(50),
+    step_number NUMBER,
+    field_name VARCHAR2(100),
+    is_required NUMBER(1) DEFAULT 0,
+    options VARCHAR2(2000),
+    validation_rules VARCHAR2(500),
+    conditional_logic VARCHAR2(1000),
+    depends_on_question_id VARCHAR2(50),
+    help_text VARCHAR2(500),
+    category VARCHAR2(100),
+    order_index NUMBER,
+    is_active NUMBER(1) DEFAULT 1,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    created_by VARCHAR2(50),
+    updated_by VARCHAR2(50)
+);
 
 -- Material Workflows table
 CREATE TABLE qrmfg_material_workflows (
     id NUMBER PRIMARY KEY,
-    material_id VARCHAR2(100) UNIQUE NOT NULL,
+    project_code VARCHAR2(50) NOT NULL,
+    material_code VARCHAR2(50) NOT NULL,
+    plant_code VARCHAR2(50) NOT NULL,
+    block_id VARCHAR2(50) NOT NULL,
     workflow_state VARCHAR2(20) NOT NULL,
-    assigned_plant VARCHAR2(100),
     initiated_by VARCHAR2(100) NOT NULL,
     material_name VARCHAR2(200),
     material_description VARCHAR2(1000),
@@ -24,7 +59,8 @@ CREATE TABLE qrmfg_material_workflows (
     extended_at TIMESTAMP,
     completed_at TIMESTAMP,
     created_by VARCHAR2(50),
-    updated_by VARCHAR2(50)
+    updated_by VARCHAR2(50),
+    CONSTRAINT uk_workflow_combination UNIQUE (project_code, material_code, plant_code, block_id)
 );
 
 -- Queries table
@@ -70,6 +106,26 @@ CREATE TABLE qrmfg_questionnaire_responses (
     CONSTRAINT fk_response_workflow FOREIGN KEY (workflow_id) REFERENCES qrmfg_material_workflows(id)
 );
 
+-- Workflow Documents table
+CREATE TABLE qrmfg_workflow_documents (
+    id NUMBER PRIMARY KEY,
+    workflow_id NUMBER NOT NULL,
+    file_name VARCHAR2(255) NOT NULL,
+    original_file_name VARCHAR2(255) NOT NULL,
+    file_path VARCHAR2(500) NOT NULL,
+    file_type VARCHAR2(10) NOT NULL,
+    file_size NUMBER NOT NULL,
+    uploaded_by VARCHAR2(100),
+    uploaded_at TIMESTAMP NOT NULL,
+    is_reused NUMBER(1) DEFAULT 0 NOT NULL,
+    original_document_id NUMBER,
+    created_by VARCHAR2(50),
+    updated_by VARCHAR2(50),
+    last_modified TIMESTAMP NOT NULL,
+    CONSTRAINT fk_document_workflow FOREIGN KEY (workflow_id) REFERENCES qrmfg_material_workflows(id),
+    CONSTRAINT fk_document_original FOREIGN KEY (original_document_id) REFERENCES qrmfg_workflow_documents(id)
+);
+
 -- Revision info table for Hibernate Envers
 CREATE TABLE qrmfg_revinfo (
     id NUMBER PRIMARY KEY,
@@ -94,13 +150,45 @@ CREATE TABLE qrmfg_notification_preferences (
 );
 
 -- Audit tables for Hibernate Envers
+CREATE TABLE qrmfg_questionnaire_master_aud (
+    id NUMBER,
+    rev NUMBER,
+    revtype NUMBER,
+    sr_no NUMBER,
+    checklist_text VARCHAR2(2000),
+    comments VARCHAR2(2000),
+    responsible VARCHAR2(100),
+    question_id VARCHAR2(50),
+    question_text VARCHAR2(1000),
+    question_type VARCHAR2(50),
+    step_number NUMBER,
+    field_name VARCHAR2(100),
+    is_required NUMBER(1),
+    options VARCHAR2(2000),
+    validation_rules VARCHAR2(500),
+    conditional_logic VARCHAR2(1000),
+    depends_on_question_id VARCHAR2(50),
+    help_text VARCHAR2(500),
+    category VARCHAR2(100),
+    order_index NUMBER,
+    is_active NUMBER(1),
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    created_by VARCHAR2(50),
+    updated_by VARCHAR2(50),
+    PRIMARY KEY (id, rev),
+    CONSTRAINT fk_questionnaire_master_aud_rev FOREIGN KEY (rev) REFERENCES qrmfg_revinfo(id)
+);
+
 CREATE TABLE qrmfg_material_workflows_aud (
     id NUMBER,
     rev NUMBER,
     revtype NUMBER,
-    material_id VARCHAR2(100),
+    project_code VARCHAR2(50),
+    material_code VARCHAR2(50),
+    plant_code VARCHAR2(50),
+    block_id VARCHAR2(50),
     workflow_state VARCHAR2(20),
-    assigned_plant VARCHAR2(100),
     initiated_by VARCHAR2(100),
     material_name VARCHAR2(200),
     material_description VARCHAR2(1000),
@@ -163,9 +251,38 @@ CREATE TABLE qrmfg_questionnaire_responses_aud (
     CONSTRAINT fk_response_aud_rev FOREIGN KEY (rev) REFERENCES qrmfg_revinfo(id)
 );
 
+CREATE TABLE qrmfg_workflow_documents_aud (
+    id NUMBER,
+    rev NUMBER,
+    revtype NUMBER,
+    workflow_id NUMBER,
+    file_name VARCHAR2(255),
+    original_file_name VARCHAR2(255),
+    file_path VARCHAR2(500),
+    file_type VARCHAR2(10),
+    file_size NUMBER,
+    uploaded_by VARCHAR2(100),
+    uploaded_at TIMESTAMP,
+    is_reused NUMBER(1),
+    original_document_id NUMBER,
+    created_by VARCHAR2(50),
+    updated_by VARCHAR2(50),
+    last_modified TIMESTAMP,
+    PRIMARY KEY (id, rev),
+    CONSTRAINT fk_document_aud_rev FOREIGN KEY (rev) REFERENCES qrmfg_revinfo(id)
+);
+
 -- Create indexes for better performance
+CREATE INDEX idx_questionnaire_master_active ON qrmfg_questionnaire_master(is_active);
+CREATE INDEX idx_questionnaire_master_step ON qrmfg_questionnaire_master(step_number);
+CREATE INDEX idx_questionnaire_master_question_id ON qrmfg_questionnaire_master(question_id);
+CREATE INDEX idx_questionnaire_master_category ON qrmfg_questionnaire_master(category);
+CREATE INDEX idx_questionnaire_master_depends ON qrmfg_questionnaire_master(depends_on_question_id);
+
 CREATE INDEX idx_material_workflow_state ON qrmfg_material_workflows(workflow_state);
-CREATE INDEX idx_material_workflow_plant ON qrmfg_material_workflows(assigned_plant);
+CREATE INDEX idx_material_workflow_plant ON qrmfg_material_workflows(plant_code);
+CREATE INDEX idx_material_workflow_project ON qrmfg_material_workflows(project_code);
+CREATE INDEX idx_material_workflow_material ON qrmfg_material_workflows(material_code);
 CREATE INDEX idx_material_workflow_created ON qrmfg_material_workflows(created_at);
 
 CREATE INDEX idx_query_workflow ON qrmfg_queries(workflow_id);
@@ -240,6 +357,35 @@ CREATE TABLE qrmfg_user_roles (
     CONSTRAINT fk_user_role_role FOREIGN KEY (role_id) REFERENCES qrmfg_roles(id)
 );
 
+-- Screen Role Mapping table
+CREATE TABLE qrmfg_screen_role_mapping (
+    id NUMBER PRIMARY KEY,
+    route VARCHAR2(255) NOT NULL,
+    role_id NUMBER NOT NULL,
+    CONSTRAINT fk_screen_role_mapping_role FOREIGN KEY (role_id) REFERENCES qrmfg_roles(id)
+);
+
+-- User Sessions table
+CREATE TABLE qrmfg_user_sessions (
+    id NUMBER PRIMARY KEY,
+    user_id NUMBER NOT NULL,
+    session_id VARCHAR2(255) UNIQUE NOT NULL,
+    started_at TIMESTAMP NOT NULL,
+    ended_at TIMESTAMP,
+    last_activity_at TIMESTAMP,
+    expires_at TIMESTAMP,
+    ip_address VARCHAR2(50),
+    user_agent VARCHAR2(500),
+    status VARCHAR2(20) DEFAULT 'ACTIVE',
+    active NUMBER(1) DEFAULT 1 NOT NULL,
+    session_data VARCHAR2(1000),
+    device_type VARCHAR2(20),
+    location VARCHAR2(100),
+    browser VARCHAR2(20),
+    os VARCHAR2(20),
+    CONSTRAINT fk_user_session_user FOREIGN KEY (user_id) REFERENCES qrmfg_users(id)
+);
+
 -- Create additional indexes for audit and user management
 CREATE INDEX idx_audit_log_timestamp ON qrmfg_audit_logs(timestamp);
 CREATE INDEX idx_audit_log_username ON qrmfg_audit_logs(username);
@@ -253,6 +399,14 @@ CREATE INDEX idx_user_plant ON qrmfg_users(plant_assignment);
 
 CREATE INDEX idx_role_name ON qrmfg_roles(name);
 CREATE INDEX idx_role_active ON qrmfg_roles(is_active);
+
+CREATE INDEX idx_screen_role_mapping_route ON qrmfg_screen_role_mapping(route);
+CREATE INDEX idx_screen_role_mapping_role ON qrmfg_screen_role_mapping(role_id);
+
+CREATE INDEX idx_user_session_user ON qrmfg_user_sessions(user_id);
+CREATE INDEX idx_user_session_id ON qrmfg_user_sessions(session_id);
+CREATE INDEX idx_user_session_active ON qrmfg_user_sessions(active);
+CREATE INDEX idx_user_session_expires ON qrmfg_user_sessions(expires_at);
 
 -- Insert default roles for workflow management
 INSERT INTO qrmfg_roles (id, name, description, is_active, created_at, updated_at, created_by) VALUES 
@@ -271,6 +425,7 @@ INSERT INTO qrmfg_roles (id, name, description, is_active, created_at, updated_a
 (ROLE_SEQ.NEXTVAL, 'TECH_USER', 'Technology team member who resolves technical queries', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM');
 
 -- Comments for documentation
+COMMENT ON TABLE qrmfg_questionnaire_master IS 'Master template for questionnaire questions and structure';
 COMMENT ON TABLE qrmfg_material_workflows IS 'Main workflow tracking table for MSDS materials';
 COMMENT ON TABLE qrmfg_queries IS 'Queries raised during workflow processing';
 COMMENT ON TABLE qrmfg_questionnaire_responses IS 'Plant team responses to questionnaire fields';
@@ -278,10 +433,90 @@ COMMENT ON TABLE qrmfg_audit_logs IS 'Audit trail for all system actions';
 COMMENT ON TABLE qrmfg_users IS 'System users with workflow access';
 COMMENT ON TABLE qrmfg_roles IS 'Role definitions for access control';
 COMMENT ON TABLE qrmfg_user_roles IS 'User-role assignments';
+COMMENT ON TABLE qrmfg_screen_role_mapping IS 'Screen/route access control by role';
+COMMENT ON TABLE qrmfg_user_sessions IS 'Active user sessions for authentication';
 
+COMMENT ON COLUMN qrmfg_questionnaire_master.question_type IS 'Question type: TEXT, SELECT, CHECKBOX, RADIO, TEXTAREA, NUMBER, DATE, BOOLEAN';
+COMMENT ON COLUMN qrmfg_questionnaire_master.depends_on_question_id IS 'Question ID this question depends on for conditional display';
 COMMENT ON COLUMN qrmfg_material_workflows.workflow_state IS 'Current state: JVC_PENDING, PLANT_PENDING, CQS_PENDING, TECH_PENDING, COMPLETED';
 COMMENT ON COLUMN qrmfg_queries.assigned_team IS 'Team assigned to resolve query: CQS, TECH';
 COMMENT ON COLUMN qrmfg_queries.query_status IS 'Query status: OPEN, RESOLVED';
 COMMENT ON COLUMN qrmfg_questionnaire_responses.field_type IS 'Field type: TEXT, NUMBER, DATE, BOOLEAN, SELECT, TEXTAREA';
 COMMENT ON COLUMN qrmfg_audit_logs.action IS 'Action performed: CREATE_WORKFLOW, RESOLVE_QUERY, RAISE_QUERY, COMPLETE_WORKFLOW, etc.';
 COMMENT ON COLUMN qrmfg_roles.name IS 'Role name: ADMIN, JVC_USER, PLANT_USER, CQS_USER, TECH_USER';
+
+-- Document Access Logs table for audit trail
+CREATE SEQUENCE DOCUMENT_ACCESS_LOG_SEQ START WITH 1 INCREMENT BY 1;
+
+CREATE TABLE qrmfg_document_access_logs (
+    id NUMBER PRIMARY KEY,
+    document_id NUMBER NOT NULL,
+    accessed_by VARCHAR2(100) NOT NULL,
+    access_type VARCHAR2(20) NOT NULL,
+    access_time TIMESTAMP NOT NULL,
+    ip_address VARCHAR2(45),
+    user_agent VARCHAR2(500),
+    workflow_id NUMBER,
+    access_granted NUMBER(1) DEFAULT 1 NOT NULL,
+    denial_reason VARCHAR2(255),
+    CONSTRAINT fk_doc_access_document FOREIGN KEY (document_id) REFERENCES qrmfg_workflow_documents(id),
+    CONSTRAINT fk_doc_access_workflow FOREIGN KEY (workflow_id) REFERENCES qrmfg_material_workflows(id)
+);
+
+-- Create indexes for better performance
+CREATE INDEX idx_doc_access_document_id ON qrmfg_document_access_logs(document_id);
+CREATE INDEX idx_doc_access_user ON qrmfg_document_access_logs(accessed_by);
+CREATE INDEX idx_doc_access_time ON qrmfg_document_access_logs(access_time);
+CREATE INDEX idx_doc_access_workflow ON qrmfg_document_access_logs(workflow_id);
+CREATE INDEX idx_doc_access_type ON qrmfg_document_access_logs(access_type);
+
+-- Add audit table for document access logs
+CREATE TABLE qrmfg_document_access_logs_aud (
+    id NUMBER NOT NULL,
+    rev NUMBER NOT NULL,
+    revtype NUMBER(3),
+    document_id NUMBER,
+    accessed_by VARCHAR2(100),
+    access_type VARCHAR2(20),
+    access_time TIMESTAMP,
+    ip_address VARCHAR2(45),
+    user_agent VARCHAR2(500),
+    workflow_id NUMBER,
+    access_granted NUMBER(1),
+    denial_reason VARCHAR2(255),
+    PRIMARY KEY (id, rev),
+    CONSTRAINT fk_doc_access_log_aud_rev FOREIGN KEY (rev) REFERENCES qrmfg_revinfo(id)
+);
+
+CREATE TABLE qrmfg_screen_role_mapping_aud (
+    id NUMBER,
+    rev NUMBER,
+    revtype NUMBER,
+    route VARCHAR2(255),
+    role_id NUMBER,
+    PRIMARY KEY (id, rev),
+    CONSTRAINT fk_screen_role_mapping_aud_rev FOREIGN KEY (rev) REFERENCES qrmfg_revinfo(id)
+);
+
+CREATE TABLE qrmfg_user_sessions_aud (
+    id NUMBER,
+    rev NUMBER,
+    revtype NUMBER,
+    user_id NUMBER,
+    session_id VARCHAR2(255),
+    started_at TIMESTAMP,
+    ended_at TIMESTAMP,
+    last_activity_at TIMESTAMP,
+    expires_at TIMESTAMP,
+    ip_address VARCHAR2(50),
+    user_agent VARCHAR2(500),
+    status VARCHAR2(20),
+    active NUMBER(1),
+    session_data VARCHAR2(1000),
+    device_type VARCHAR2(20),
+    location VARCHAR2(100),
+    browser VARCHAR2(20),
+    os VARCHAR2(20),
+    PRIMARY KEY (id, rev),
+    CONSTRAINT fk_user_sessions_aud_rev FOREIGN KEY (rev) REFERENCES qrmfg_revinfo(id)
+);

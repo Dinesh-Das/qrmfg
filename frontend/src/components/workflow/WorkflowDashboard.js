@@ -88,9 +88,9 @@ const WorkflowDashboard = ({ onWorkflowSelect }) => {
   const getWorkflowColumns = () => {
     const baseColumns = [
       {
-        title: 'Material ID',
-        dataIndex: 'materialId',
-        key: 'materialId',
+        title: 'Material Code',
+        dataIndex: 'materialCode',
+        key: 'materialCode',
         width: isMobile ? 100 : 120,
         fixed: isMobile ? 'left' : false,
       },

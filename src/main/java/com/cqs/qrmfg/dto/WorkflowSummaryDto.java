@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
  */
 public class WorkflowSummaryDto {
     private Long id;
-    private String materialId;
+    private String materialCode;
     private String materialName;
     private WorkflowState currentState;
     private String assignedPlant;
@@ -24,11 +24,11 @@ public class WorkflowSummaryDto {
     // Constructors
     public WorkflowSummaryDto() {}
 
-    public WorkflowSummaryDto(Long id, String materialId, String materialName, WorkflowState currentState,
+    public WorkflowSummaryDto(Long id, String materialCode, String materialName, WorkflowState currentState,
                              String assignedPlant, String initiatedBy, int daysPending, long totalQueries,
                              long openQueries, LocalDateTime createdAt, LocalDateTime lastModified, boolean overdue) {
         this.id = id;
-        this.materialId = materialId;
+        this.materialCode = materialCode;
         this.materialName = materialName;
         this.currentState = currentState;
         this.assignedPlant = assignedPlant;
@@ -50,12 +50,12 @@ public class WorkflowSummaryDto {
         this.id = id;
     }
 
-    public String getMaterialId() {
-        return materialId;
+    public String getMaterialCode() {
+        return materialCode;
     }
 
-    public void setMaterialId(String materialId) {
-        this.materialId = materialId;
+    public void setMaterialCode(String materialCode) {
+        this.materialCode = materialCode;
     }
 
     public String getMaterialName() {

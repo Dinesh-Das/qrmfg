@@ -83,17 +83,17 @@ public class QueryController {
         return ResponseEntity.status(HttpStatus.CREATED).body(savedQuery);
     }
 
-    @PostMapping("/material/{materialId}")
+    @PostMapping("/material/{materialCode}")
     @PreAuthorize("hasRole('PLANT_USER') or hasRole('ADMIN')")
     public ResponseEntity<Query> createQueryForMaterial(
-            @PathVariable String materialId,
+            @PathVariable String materialCode,
             @Valid @RequestBody QueryCreateRequest request,
             Authentication authentication) {
         
         String raisedBy = getCurrentUsername(authentication);
         
         Query query = queryService.createQuery(
-            materialId,
+            materialCode,
             request.getQuestion(),
             request.getStepNumber(),
             request.getFieldName(),
@@ -112,9 +112,9 @@ public class QueryController {
         return ResponseEntity.status(HttpStatus.CREATED).body(savedQuery);
     }
 
-    // Query resolution - CQS/Tech users only
+    // Query resolution - CQS/Tech/JVC users only
     @PutMapping("/{id}/resolve")
-    @PreAuthorize("hasRole('CQS_USER') or hasRole('TECH_USER') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('CQS_USER') or hasRole('TECH_USER') or hasRole('JVC_USER') or hasRole('ADMIN')")
     public ResponseEntity<Query> resolveQuery(
             @PathVariable Long id,
             @Valid @RequestBody QueryResolveRequest request,
@@ -126,7 +126,7 @@ public class QueryController {
     }
 
     @PutMapping("/bulk-resolve")
-    @PreAuthorize("hasRole('CQS_USER') or hasRole('TECH_USER') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('CQS_USER') or hasRole('TECH_USER') or hasRole('JVC_USER') or hasRole('ADMIN')")
     public ResponseEntity<Void> bulkResolveQueries(
             @RequestBody Map<String, Object> request,
             Authentication authentication) {
@@ -206,10 +206,10 @@ public class QueryController {
         return ResponseEntity.ok(queryDtos);
     }
 
-    @GetMapping("/material/{materialId}")
+    @GetMapping("/material/{materialCode}")
     @PreAuthorize("hasRole('USER')")
-    public ResponseEntity<List<QuerySummaryDto>> getQueriesByMaterial(@PathVariable String materialId) {
-        List<Query> queries = queryService.findByMaterialId(materialId);
+    public ResponseEntity<List<QuerySummaryDto>> getQueriesByMaterial(@PathVariable String materialCode) {
+        List<Query> queries = queryService.findByMaterialCode(materialCode);
         List<QuerySummaryDto> queryDtos = queryMapper.toSummaryDtoList(queries);
         return ResponseEntity.ok(queryDtos);
     }
@@ -242,7 +242,7 @@ public class QueryController {
 
     // Team-specific query inboxes
     @GetMapping("/inbox/{team}")
-    @PreAuthorize("hasRole('CQS_USER') or hasRole('TECH_USER') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('CQS_USER') or hasRole('TECH_USER') or hasRole('JVC_USER') or hasRole('ADMIN')")
     public ResponseEntity<List<QuerySummaryDto>> getTeamInbox(@PathVariable String team) {
         try {
             QueryTeam queryTeam = QueryTeam.valueOf(team);
@@ -255,7 +255,7 @@ public class QueryController {
     }
 
     @GetMapping("/resolved/{team}")
-    @PreAuthorize("hasRole('CQS_USER') or hasRole('TECH_USER') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('CQS_USER') or hasRole('TECH_USER') or hasRole('JVC_USER') or hasRole('ADMIN')")
     public ResponseEntity<List<QuerySummaryDto>> getTeamResolvedQueries(@PathVariable String team) {
         try {
             QueryTeam queryTeam = QueryTeam.valueOf(team);
@@ -277,7 +277,7 @@ public class QueryController {
     }
 
     @GetMapping("/my-resolved")
-    @PreAuthorize("hasRole('CQS_USER') or hasRole('TECH_USER') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('CQS_USER') or hasRole('TECH_USER') or hasRole('JVC_USER') or hasRole('ADMIN')")
     public ResponseEntity<List<QuerySummaryDto>> getMyResolvedQueries(Authentication authentication) {
         String username = getCurrentUsername(authentication);
         List<Query> queries = queryService.findMyResolvedQueries(username);
@@ -332,6 +332,26 @@ public class QueryController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
         List<Query> queries = queryService.findQueriesCreatedBetween(start, end);
+        List<QuerySummaryDto> queryDtos = queryMapper.toSummaryDtoList(queries);
+        return ResponseEntity.ok(queryDtos);
+    }
+
+    // Enhanced search with material context
+    @GetMapping("/search")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<List<QuerySummaryDto>> searchQueries(
+            @RequestParam(required = false) String materialCode,
+            @RequestParam(required = false) String projectCode,
+            @RequestParam(required = false) String plantCode,
+            @RequestParam(required = false) String blockId,
+            @RequestParam(required = false) String team,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String priority,
+            @RequestParam(required = false, defaultValue = "0") int minDaysOpen) {
+        
+        List<Query> queries = queryService.searchQueriesWithContext(
+            materialCode, projectCode, plantCode, blockId, team, status, priority, minDaysOpen
+        );
         List<QuerySummaryDto> queryDtos = queryMapper.toSummaryDtoList(queries);
         return ResponseEntity.ok(queryDtos);
     }

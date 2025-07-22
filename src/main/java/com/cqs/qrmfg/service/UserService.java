@@ -4,6 +4,7 @@ import com.cqs.qrmfg.dto.UserRoleAssignmentDto;
 import com.cqs.qrmfg.model.User;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -71,4 +72,7 @@ public interface UserService {
      * @param id User ID to delete
      */
     void delete(Long id);
+
+    Map<String, Object> getNotificationPreferences(String username);
+    void updateNotificationPreferences(String username, Map<String, Object> preferences);
 }

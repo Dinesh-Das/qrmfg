@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
  */
 public class QuerySummaryDto {
     private Long id;
-    private String materialId;
+    private String materialCode;
     private String materialName;
     private String assignedPlant;
     private Integer stepNumber;
@@ -31,13 +31,13 @@ public class QuerySummaryDto {
     // Constructors
     public QuerySummaryDto() {}
 
-    public QuerySummaryDto(Long id, String materialId, String materialName, String assignedPlant,
+    public QuerySummaryDto(Long id, String materialCode, String materialName, String assignedPlant,
                           Integer stepNumber, String fieldName, String question, String response,
                           QueryTeam assignedTeam, QueryStatus status, String raisedBy, String resolvedBy,
                           String priorityLevel, LocalDateTime createdAt, LocalDateTime resolvedAt,
                           int daysOpen, boolean overdue, boolean highPriority) {
         this.id = id;
-        this.materialId = materialId;
+        this.materialCode = materialCode;
         this.materialName = materialName;
         this.assignedPlant = assignedPlant;
         this.stepNumber = stepNumber;
@@ -65,12 +65,12 @@ public class QuerySummaryDto {
         this.id = id;
     }
 
-    public String getMaterialId() {
-        return materialId;
+    public String getMaterialCode() {
+        return materialCode;
     }
 
-    public void setMaterialId(String materialId) {
-        this.materialId = materialId;
+    public void setMaterialCode(String materialCode) {
+        this.materialCode = materialCode;
     }
 
     public String getMaterialName() {

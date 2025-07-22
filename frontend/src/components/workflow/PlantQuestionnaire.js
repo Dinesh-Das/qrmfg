@@ -11,23 +11,28 @@ import {
   Row,
   Col,
   Progress,
-  Modal,
   message,
   Spin,
   Alert,
   Divider,
   Space,
   Tooltip,
-  Badge
+  Badge,
+  notification,
+  Typography,
+  Tag,
+  Modal
 } from 'antd';
 import {
   SaveOutlined,
   QuestionCircleOutlined,
-  InfoCircleOutlined,
   CheckCircleOutlined,
   ExclamationCircleOutlined,
   ArrowLeftOutlined,
-  ArrowRightOutlined
+  ArrowRightOutlined,
+  CloudSyncOutlined,
+  WifiOutlined,
+  DisconnectOutlined
 } from '@ant-design/icons';
 import { workflowAPI } from '../../services/workflowAPI';
 import { queryAPI } from '../../services/queryAPI';
@@ -37,6 +42,7 @@ import MaterialContextPanel from './MaterialContextPanel';
 const { Step } = Steps;
 const { TextArea } = Input;
 const { Option } = Select;
+const { Text } = Typography;
 
 // Hook to detect screen size
 const useResponsive = () => {
@@ -79,10 +85,17 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
   const [pendingChanges, setPendingChanges] = useState(false);
   const { isMobile, isTablet } = useResponsive();
 
-  // Network status monitoring
+  // Network status monitoring with enhanced offline handling
   useEffect(() => {
     const handleOnline = () => {
       setIsOffline(false);
+      notification.success({
+        message: 'Connection Restored',
+        description: 'You are back online. Syncing your changes...',
+        icon: <WifiOutlined style={{ color: '#52c41a' }} />,
+        duration: 3
+      });
+      
       if (pendingChanges) {
         handleSaveDraft(true); // Auto-sync when back online
         setPendingChanges(false);
@@ -91,7 +104,12 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
     
     const handleOffline = () => {
       setIsOffline(true);
-      message.warning('You are offline. Changes will be saved locally.');
+      notification.warning({
+        message: 'Connection Lost',
+        description: 'You are offline. Changes will be saved locally and synced when connection is restored.',
+        icon: <DisconnectOutlined style={{ color: '#fa8c16' }} />,
+        duration: 5
+      });
     };
 
     window.addEventListener('online', handleOnline);
@@ -101,7 +119,55 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [pendingChanges]);
+  }, [pendingChanges, handleSaveDraft]);
+
+  // Enhanced keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      // Ctrl/Cmd + S to save draft
+      if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+        event.preventDefault();
+        handleSaveDraft();
+      }
+      
+      // Ctrl/Cmd + Right Arrow to go to next step
+      if ((event.ctrlKey || event.metaKey) && event.key === 'ArrowRight') {
+        event.preventDefault();
+        if (currentStep < questionnaireSteps.length - 1) {
+          handleNext();
+        }
+      }
+      
+      // Ctrl/Cmd + Left Arrow to go to previous step
+      if ((event.ctrlKey || event.metaKey) && event.key === 'ArrowLeft') {
+        event.preventDefault();
+        if (currentStep > 0) {
+          handlePrevious();
+        }
+      }
+      
+      // F1 to show help/shortcuts
+      if (event.key === 'F1') {
+        event.preventDefault();
+        Modal.info({
+          title: 'Keyboard Shortcuts',
+          content: (
+            <div>
+              <p><strong>Ctrl/Cmd + S:</strong> Save draft</p>
+              <p><strong>Ctrl/Cmd + →:</strong> Next step</p>
+              <p><strong>Ctrl/Cmd + ←:</strong> Previous step</p>
+              <p><strong>Tab:</strong> Navigate between fields</p>
+              <p><strong>Enter:</strong> Submit form or proceed</p>
+              <p><strong>Esc:</strong> Close modals</p>
+            </div>
+          )
+        });
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [currentStep, questionnaireSteps.length, handleSaveDraft, handleNext, handlePrevious]);
 
   // Define questionnaire steps
   const questionnaireSteps = [
@@ -328,9 +394,100 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
 
       return () => clearTimeout(autoSaveTimer);
     }
-  }, [formData, autoSaveEnabled]);
+  }, [formData, autoSaveEnabled, handleSaveDraft]);
 
-  // Auto-recovery on component mount
+  // Enhanced form validation with field-specific rules
+  const getFieldValidationRules = (field) => {
+    const rules = [];
+    
+    if (field.required) {
+      rules.push({ 
+        required: true, 
+        message: `${field.label} is required for MSDS completion` 
+      });
+    }
+    
+    // Add specific validation based on field type and name
+    switch (field.name) {
+      case 'casNumber':
+        rules.push({
+          pattern: /^\d{1,7}-\d{2}-\d$/,
+          message: 'Please enter a valid CAS number format (e.g., 64-17-5). If unknown, raise a query to the Technical team.'
+        });
+        break;
+      case 'boilingPoint':
+      case 'meltingPoint':
+        rules.push({
+          pattern: /^-?\d+(\.\d+)?$/,
+          message: 'Please enter a valid temperature in Celsius (e.g., 100.5 or -10)'
+        });
+        break;
+      case 'materialName':
+        rules.push({
+          min: 2,
+          message: 'Material name must be at least 2 characters'
+        });
+        rules.push({
+          max: 200,
+          message: 'Material name cannot exceed 200 characters'
+        });
+        break;
+      case 'supplierName':
+        rules.push({
+          min: 2,
+          message: 'Supplier name must be at least 2 characters'
+        });
+        rules.push({
+          max: 100,
+          message: 'Supplier name cannot exceed 100 characters'
+        });
+        break;
+      case 'firstAidMeasures':
+      case 'storageConditions':
+      case 'handlingPrecautions':
+      case 'disposalMethods':
+      case 'spillCleanup':
+        rules.push({
+          min: 10,
+          message: `${field.label} must be at least 10 characters for regulatory compliance`
+        });
+        rules.push({
+          max: 2000,
+          message: `${field.label} cannot exceed 2000 characters`
+        });
+        break;
+      case 'hazardStatements':
+      case 'precautionaryStatements':
+        rules.push({
+          pattern: /^[HP]\d{3}/,
+          message: 'Please use standard H-codes (e.g., H225) or P-codes (e.g., P210). Separate multiple codes with commas.'
+        });
+        break;
+      default:
+        break;
+    }
+    
+    return rules;
+  };
+
+  // Get contextual help text for fields
+  const getFieldHelpText = (field) => {
+    const helpTexts = {
+      'casNumber': 'Chemical Abstracts Service number - unique identifier for chemical substances',
+      'materialType': 'Select the most appropriate category based on the material composition',
+      'physicalState': 'Physical state at room temperature (20°C)',
+      'hazardCategories': 'Select all applicable hazard classifications according to GHS',
+      'signalWord': 'GHS signal word based on the most severe hazard category',
+      'personalProtection': 'Required PPE based on hazard assessment',
+      'environmentalHazards': 'Environmental impact classifications according to GHS',
+      'boilingPoint': 'Temperature at which the material changes from liquid to gas at standard pressure',
+      'meltingPoint': 'Temperature at which the material changes from solid to liquid'
+    };
+    
+    return helpTexts[field.name] || field.help;
+  };
+
+  // Enhanced auto-recovery on component mount with improved error handling
   useEffect(() => {
     const recoverDraftData = () => {
       try {
@@ -342,27 +499,85 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
           const draftTimestamp = draftData.timestamp;
           const currentTime = Date.now();
           
-          // Only recover if draft is less than 24 hours old
-          if (currentTime - draftTimestamp < 24 * 60 * 60 * 1000) {
-            setFormData(prev => ({ ...prev, ...draftData.formData }));
-            form.setFieldsValue(draftData.formData);
-            setCurrentStep(draftData.currentStep || 0);
-            
-            message.info('Draft data recovered from previous session');
+          // Only recover if draft is less than 7 days old (extended from 24 hours)
+          if (currentTime - draftTimestamp < 7 * 24 * 60 * 60 * 1000) {
+            // Enhanced validation of draft data integrity
+            if (draftData.formData && typeof draftData.formData === 'object') {
+              // Validate each field value before setting
+              const validatedFormData = {};
+              Object.entries(draftData.formData).forEach(([key, value]) => {
+                if (value !== null && value !== undefined && value !== '') {
+                  validatedFormData[key] = value;
+                }
+              });
+              
+              setFormData(prev => ({ ...prev, ...validatedFormData }));
+              form.setFieldsValue(validatedFormData);
+              
+              if (typeof draftData.currentStep === 'number' && 
+                  draftData.currentStep >= 0 && 
+                  draftData.currentStep < questionnaireSteps.length) {
+                setCurrentStep(draftData.currentStep);
+              }
+              
+              if (Array.isArray(draftData.completedSteps)) {
+                setCompletedSteps(new Set(draftData.completedSteps));
+              }
+              
+              // Check if there are pending changes to sync
+              if (draftData.syncStatus === 'pending') {
+                setPendingChanges(true);
+              }
+              
+              const recoveredFields = Object.keys(validatedFormData).length;
+              const draftAge = Math.round((currentTime - draftTimestamp) / (1000 * 60 * 60));
+              
+              notification.success({
+                message: 'Draft Recovered',
+                description: `${recoveredFields} fields restored from ${draftAge} hours ago. Your progress has been preserved.`,
+                duration: 6,
+                placement: 'topRight'
+              });
+            } else {
+              // Remove corrupted draft
+              localStorage.removeItem(draftKey);
+              notification.warning({
+                message: 'Draft Recovery Failed',
+                description: 'Previous draft data was corrupted and has been cleared.',
+                duration: 4
+              });
+            }
           } else {
             // Remove old draft
             localStorage.removeItem(draftKey);
+            const draftAge = Math.round((currentTime - draftTimestamp) / (1000 * 60 * 60 * 24));
+            notification.info({
+              message: 'Old Draft Cleared',
+              description: `Draft from ${draftAge} days ago was automatically removed.`,
+              duration: 3
+            });
           }
         }
       } catch (error) {
         console.error('Failed to recover draft data:', error);
+        // Remove corrupted draft
+        try {
+          localStorage.removeItem(`plant_questionnaire_draft_${workflowId}`);
+          notification.error({
+            message: 'Draft Recovery Error',
+            description: 'Failed to recover previous draft. Starting fresh.',
+            duration: 4
+          });
+        } catch (removeError) {
+          console.error('Failed to remove corrupted draft:', removeError);
+        }
       }
     };
 
     if (workflowId && !workflowData) {
       recoverDraftData();
     }
-  }, [workflowId, workflowData, form]);
+  }, [workflowId, workflowData, form, questionnaireSteps.length]);
 
   const loadWorkflowData = async () => {
     try {
@@ -407,37 +622,111 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
       const currentValues = form.getFieldsValue();
       const updatedFormData = { ...formData, ...currentValues };
       
-      // Save to local storage as backup
+      // Enhanced validation before saving
+      const validatedFormData = {};
+      Object.entries(updatedFormData).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== '') {
+          validatedFormData[key] = value;
+        }
+      });
+      
+      // Save to local storage as backup with enhanced metadata
       const draftKey = `plant_questionnaire_draft_${workflowId}`;
       const draftData = {
-        formData: updatedFormData,
+        formData: validatedFormData,
         currentStep,
         timestamp: Date.now(),
-        completedSteps: Array.from(completedSteps)
+        completedSteps: Array.from(completedSteps),
+        version: '2.0', // Updated version for better compatibility
+        materialCode: workflowData?.materialCode,
+        materialName: workflowData?.materialName,
+        assignedPlant: workflowData?.assignedPlant,
+        lastSyncAttempt: Date.now(),
+        syncStatus: isOffline ? 'pending' : 'synced',
+        totalFields: Object.keys(validatedFormData).length,
+        completionPercentage: getOverallCompletionPercentage(),
+        sessionId: Date.now() // Add session tracking
       };
       
       try {
         localStorage.setItem(draftKey, JSON.stringify(draftData));
       } catch (localStorageError) {
         console.warn('Failed to save draft to local storage:', localStorageError);
+        // Try to clear old drafts to make space
+        try {
+          const keys = Object.keys(localStorage);
+          const oldDraftKeys = keys.filter(key => 
+            key.startsWith('plant_questionnaire_draft_') && 
+            key !== draftKey
+          );
+          oldDraftKeys.forEach(key => {
+            try {
+              const oldDraft = JSON.parse(localStorage.getItem(key));
+              // Remove drafts older than 7 days
+              if (Date.now() - oldDraft.timestamp > 7 * 24 * 60 * 60 * 1000) {
+                localStorage.removeItem(key);
+              }
+            } catch (e) {
+              localStorage.removeItem(key); // Remove corrupted entries
+            }
+          });
+          // Try saving again
+          localStorage.setItem(draftKey, JSON.stringify(draftData));
+        } catch (cleanupError) {
+          if (!silent) {
+            message.warning('Local storage is full. Some draft data may not be saved.');
+          }
+        }
       }
       
-      // Save to server
-      await workflowAPI.saveDraftResponses(workflowId, {
-        responses: Object.entries(updatedFormData).map(([fieldName, fieldValue]) => ({
-          fieldName,
-          fieldValue: typeof fieldValue === 'object' ? JSON.stringify(fieldValue) : String(fieldValue),
-          stepNumber: getStepForField(fieldName)
-        })),
-        currentStep,
-        completedSteps: Array.from(completedSteps)
-      });
+      // Save to server if online
+      if (!isOffline) {
+        try {
+          const serverData = {
+            responses: Object.entries(updatedFormData).map(([fieldName, fieldValue]) => ({
+              fieldName,
+              fieldValue: typeof fieldValue === 'object' ? JSON.stringify(fieldValue) : String(fieldValue),
+              stepNumber: getStepForField(fieldName)
+            })),
+            currentStep,
+            completedSteps: Array.from(completedSteps),
+            lastModified: new Date().toISOString()
+          };
+          
+          await workflowAPI.saveDraftResponses(workflowId, serverData);
+          
+          // Update local storage to mark as synced
+          draftData.syncStatus = 'synced';
+          draftData.lastSyncAttempt = Date.now();
+          localStorage.setItem(draftKey, JSON.stringify(draftData));
+          
+          if (!silent) {
+            message.success('Draft saved successfully');
+          }
+        } catch (serverError) {
+          console.error('Failed to save draft to server:', serverError);
+          setPendingChanges(true);
+          draftData.syncStatus = 'pending';
+          localStorage.setItem(draftKey, JSON.stringify(draftData));
+          
+          if (!silent) {
+            if (serverError.status === 401) {
+              message.error('Session expired. Please log in again.');
+            } else if (serverError.status >= 500) {
+              message.warning('Server error. Draft saved locally and will sync when server is available.');
+            } else {
+              message.warning('Draft saved locally. Will sync when connection is restored.');
+            }
+          }
+        }
+      } else {
+        setPendingChanges(true);
+        if (!silent) {
+          message.info('Draft saved locally. Will sync when online.');
+        }
+      }
       
       setFormData(updatedFormData);
-      
-      if (!silent) {
-        message.success('Draft saved successfully');
-      }
       
       if (onSaveDraft) {
         onSaveDraft(updatedFormData);
@@ -445,12 +734,12 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
     } catch (error) {
       console.error('Failed to save draft:', error);
       if (!silent) {
-        message.error('Failed to save draft. Your progress is saved locally.');
+        message.error('Failed to save draft. Please try again.');
       }
     } finally {
       setSaving(false);
     }
-  }, [form, formData, workflowId, onSaveDraft, currentStep, completedSteps]);
+  }, [form, formData, workflowId, onSaveDraft, currentStep, completedSteps, isOffline, workflowData]);
 
   const getStepForField = (fieldName) => {
     for (let i = 0; i < questionnaireSteps.length; i++) {
@@ -469,10 +758,73 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
       .then(() => {
         setCurrentStep(step);
         setCompletedSteps(prev => new Set([...prev, currentStep]));
+        
+        // Auto-save when moving between steps
+        handleSaveDraft(true);
       })
-      .catch(() => {
-        message.warning('Please complete all required fields before proceeding');
+      .catch((errorInfo) => {
+        const errorFields = errorInfo.errorFields.map(field => field.name[0]);
+        message.warning(`Please complete required fields: ${errorFields.join(', ')}`);
       });
+  };
+
+  // Enhanced step completion tracking with validation
+  const getStepCompletionStatus = (stepIndex) => {
+    const stepFields = questionnaireSteps[stepIndex].fields;
+    const requiredFields = stepFields.filter(field => field.required);
+    const optionalFields = stepFields.filter(field => !field.required);
+    
+    const completedRequiredFields = requiredFields.filter(field => {
+      const value = formData[field.name];
+      if (Array.isArray(value)) {
+        return value.length > 0;
+      }
+      return value && value !== '' && value !== null && value !== undefined;
+    });
+    
+    const completedOptionalFields = optionalFields.filter(field => {
+      const value = formData[field.name];
+      if (Array.isArray(value)) {
+        return value.length > 0;
+      }
+      return value && value !== '' && value !== null && value !== undefined;
+    });
+    
+    const stepQueries = queries.filter(q => q.stepNumber === stepIndex);
+    const openQueries = stepQueries.filter(q => q.status === 'OPEN');
+    const resolvedQueries = stepQueries.filter(q => q.status === 'RESOLVED');
+    
+    return {
+      total: stepFields.length,
+      required: requiredFields.length,
+      optional: optionalFields.length,
+      completed: completedRequiredFields.length + completedOptionalFields.length,
+      requiredCompleted: completedRequiredFields.length,
+      optionalCompleted: completedOptionalFields.length,
+      isComplete: completedRequiredFields.length === requiredFields.length,
+      hasOpenQueries: openQueries.length > 0,
+      hasResolvedQueries: resolvedQueries.length > 0,
+      openQueriesCount: openQueries.length,
+      resolvedQueriesCount: resolvedQueries.length,
+      completionPercentage: stepFields.length > 0 ? 
+        Math.round(((completedRequiredFields.length + completedOptionalFields.length) / stepFields.length) * 100) : 100,
+      requiredCompletionPercentage: requiredFields.length > 0 ? 
+        Math.round((completedRequiredFields.length / requiredFields.length) * 100) : 100
+    };
+  };
+
+  // Calculate overall completion percentage
+  const getOverallCompletionPercentage = () => {
+    let totalRequired = 0;
+    let completedRequired = 0;
+    
+    questionnaireSteps.forEach((step, index) => {
+      const status = getStepCompletionStatus(index);
+      totalRequired += status.required;
+      completedRequired += status.requiredCompleted;
+    });
+    
+    return totalRequired > 0 ? Math.round((completedRequired / totalRequired) * 100) : 0;
   };
 
   const handleNext = () => {
@@ -489,10 +841,19 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
 
   const handleRaiseQuery = (fieldName) => {
     const field = questionnaireSteps[currentStep].fields.find(f => f.name === fieldName);
+    const currentValue = formData[fieldName] || form.getFieldValue(fieldName);
+    
     setSelectedField({
       ...field,
       stepNumber: currentStep,
-      stepTitle: questionnaireSteps[currentStep].title
+      stepTitle: questionnaireSteps[currentStep].title,
+      currentValue: currentValue,
+      materialContext: {
+        materialCode: workflowData?.materialCode,
+        materialName: workflowData?.materialName,
+        materialType: formData.materialType || workflowData?.materialType,
+        supplierName: formData.supplierName || workflowData?.supplierName
+      }
     });
     setQueryModalVisible(true);
   };
@@ -504,34 +865,139 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
     message.success('Query raised successfully');
   };
 
+  // Auto-scroll to field with resolved query
+  const scrollToResolvedQuery = useCallback((fieldName) => {
+    setTimeout(() => {
+      const fieldElement = document.querySelector(`[data-field-name="${fieldName}"]`);
+      if (fieldElement) {
+        fieldElement.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center',
+          inline: 'nearest'
+        });
+        
+        // Highlight the field briefly
+        fieldElement.style.transition = 'background-color 0.3s ease';
+        fieldElement.style.backgroundColor = '#f6ffed';
+        setTimeout(() => {
+          fieldElement.style.backgroundColor = '';
+        }, 2000);
+      }
+    }, 100);
+  }, []);
+
+  // Check for newly resolved queries and auto-scroll
+  useEffect(() => {
+    if (queries.length > 0) {
+      const resolvedQueriesInCurrentStep = queries.filter(q => 
+        q.stepNumber === currentStep && 
+        q.status === 'RESOLVED' &&
+        !q.hasBeenViewed // Add this flag to track if user has seen the resolution
+      );
+      
+      if (resolvedQueriesInCurrentStep.length > 0) {
+        const latestResolvedQuery = resolvedQueriesInCurrentStep
+          .sort((a, b) => new Date(b.resolvedAt) - new Date(a.resolvedAt))[0];
+        
+        scrollToResolvedQuery(latestResolvedQuery.fieldName);
+        
+        // Show notification about resolved query
+        notification.success({
+          message: 'Query Resolved',
+          description: `Your query about "${latestResolvedQuery.fieldName}" has been resolved. Check the field for the response.`,
+          duration: 5,
+          placement: 'topRight'
+        });
+      }
+    }
+  }, [queries, currentStep, scrollToResolvedQuery]);
+
   const handleSubmit = async () => {
     try {
       setSubmitting(true);
       
-      // Validate all fields
-      const allFields = questionnaireSteps.flatMap(step => step.fields.map(field => field.name));
-      await form.validateFields(allFields);
-      
-      const finalData = form.getFieldsValue();
-      
-      await workflowAPI.submitQuestionnaire(workflowId, {
-        responses: Object.entries(finalData).map(([fieldName, fieldValue]) => ({
-          fieldName,
-          fieldValue: typeof fieldValue === 'object' ? JSON.stringify(fieldValue) : String(fieldValue),
-          stepNumber: getStepForField(fieldName)
-        }))
-      });
-      
-      message.success('Questionnaire submitted successfully');
-      
-      if (onComplete) {
-        onComplete(finalData);
+      // Check for open queries
+      const openQueries = queries.filter(q => q.status === 'OPEN');
+      if (openQueries.length > 0) {
+        Modal.confirm({
+          title: 'Open Queries Detected',
+          content: `You have ${openQueries.length} open queries. Are you sure you want to submit the questionnaire? It's recommended to resolve all queries before submission.`,
+          okText: 'Submit Anyway',
+          cancelText: 'Cancel',
+          onOk: () => proceedWithSubmission()
+        });
+        return;
       }
+      
+      await proceedWithSubmission();
     } catch (error) {
       console.error('Failed to submit questionnaire:', error);
-      message.error('Failed to submit questionnaire');
+      if (error.status === 400) {
+        message.error('Please complete all required fields before submitting');
+      } else if (error.status === 401) {
+        message.error('Session expired. Please log in again.');
+      } else {
+        message.error('Failed to submit questionnaire. Please try again.');
+      }
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const proceedWithSubmission = async () => {
+    // Validate all required fields
+    const allRequiredFields = questionnaireSteps.flatMap(step => 
+      step.fields.filter(field => field.required).map(field => field.name)
+    );
+    
+    await form.validateFields(allRequiredFields);
+    
+    const finalData = form.getFieldsValue();
+    
+    // Check completion percentage
+    const completionPercentage = getOverallCompletionPercentage();
+    if (completionPercentage < 80) {
+      const proceed = await new Promise((resolve) => {
+        Modal.confirm({
+          title: 'Incomplete Questionnaire',
+          content: `Your questionnaire is only ${completionPercentage}% complete. Are you sure you want to submit?`,
+          okText: 'Submit',
+          cancelText: 'Continue Editing',
+          onOk: () => resolve(true),
+          onCancel: () => resolve(false)
+        });
+      });
+      
+      if (!proceed) {
+        return;
+      }
+    }
+    
+    const submissionData = {
+      responses: Object.entries(finalData).map(([fieldName, fieldValue]) => ({
+        fieldName,
+        fieldValue: typeof fieldValue === 'object' ? JSON.stringify(fieldValue) : String(fieldValue),
+        stepNumber: getStepForField(fieldName)
+      })),
+      completionPercentage,
+      submittedAt: new Date().toISOString(),
+      totalQueries: queries.length,
+      openQueries: queries.filter(q => q.status === 'OPEN').length
+    };
+    
+    await workflowAPI.submitQuestionnaire(workflowId, submissionData);
+    
+    // Clear draft data after successful submission
+    try {
+      localStorage.removeItem(`plant_questionnaire_draft_${workflowId}`);
+    } catch (error) {
+      console.warn('Failed to clear draft data:', error);
+    }
+    
+    message.success('Questionnaire submitted successfully');
+    
+    if (onComplete) {
+      onComplete(finalData);
     }
   };
 
@@ -542,11 +1008,19 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
     
     const hasOpenQuery = fieldQueries.some(q => q.status === 'OPEN');
     const hasResolvedQuery = fieldQueries.some(q => q.status === 'RESOLVED');
+    const resolvedQuery = fieldQueries.find(q => q.status === 'RESOLVED');
 
+    const isFieldCompleted = formData[field.name] && formData[field.name] !== '';
+    
     const fieldLabel = (
       <Space>
         {field.label}
         {field.required && <span style={{ color: 'red' }}>*</span>}
+        {isFieldCompleted && (
+          <Tooltip title="Field completed">
+            <CheckCircleOutlined style={{ color: '#52c41a', fontSize: '12px' }} />
+          </Tooltip>
+        )}
         <Tooltip title="Raise a query about this field">
           <Button
             type="text"
@@ -564,29 +1038,75 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
       </Space>
     );
 
+    // Enhanced validation rules
+    const validationRules = getFieldValidationRules(field);
+
+    const helpContent = resolvedQuery ? (
+      <div style={{ 
+        marginTop: 4, 
+        padding: '8px 12px', 
+        backgroundColor: '#f6ffed', 
+        border: '1px solid #b7eb8f',
+        borderRadius: '6px',
+        fontSize: '12px'
+      }}>
+        <div style={{ marginBottom: 4 }}>
+          <Text strong style={{ color: '#52c41a' }}>Query Response:</Text>
+        </div>
+        <div style={{ marginBottom: 4 }}>
+          {resolvedQuery.response}
+        </div>
+        <div style={{ fontSize: '10px', color: '#666' }}>
+          Resolved by {resolvedQuery.resolvedBy} on {new Date(resolvedQuery.resolvedAt).toLocaleDateString()}
+        </div>
+      </div>
+    ) : getFieldHelpText(field);
+
     const commonProps = {
       name: field.name,
       label: fieldLabel,
-      rules: field.required ? [{ required: true, message: `${field.label} is required` }] : [],
+      rules: validationRules,
+      help: helpContent,
+      'data-field-name': field.name // Add data attribute for auto-scrolling
     };
+
+    const renderFormItem = (content) => (
+      <div data-field-name={field.name} style={{ position: 'relative' }}>
+        {content}
+        {/* Visual indicator for resolved queries */}
+        {hasResolvedQuery && !hasOpenQuery && (
+          <div style={{
+            position: 'absolute',
+            top: '-2px',
+            right: '-2px',
+            width: '8px',
+            height: '8px',
+            backgroundColor: '#52c41a',
+            borderRadius: '50%',
+            border: '2px solid white',
+            boxShadow: '0 0 4px rgba(82, 196, 26, 0.5)'
+          }} />
+        )}
+      </div>
+    );
 
     switch (field.type) {
       case 'input':
-        return (
+        return renderFormItem(
           <Form.Item {...commonProps}>
             <Input placeholder={field.placeholder} />
           </Form.Item>
         );
       
       case 'textarea':
-        return (
+        return renderFormItem(
           <Form.Item {...commonProps}>
             <TextArea rows={4} placeholder={field.placeholder} />
           </Form.Item>
         );
       
       case 'select':
-        return (
+        return renderFormItem(
           <Form.Item {...commonProps}>
             <Select placeholder={`Select ${field.label.toLowerCase()}`}>
               {field.options.map(option => (
@@ -599,7 +1119,7 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
         );
       
       case 'radio':
-        return (
+        return renderFormItem(
           <Form.Item {...commonProps}>
             <Radio.Group>
               {field.options.map(option => (
@@ -612,7 +1132,7 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
         );
       
       case 'checkbox':
-        return (
+        return renderFormItem(
           <Form.Item {...commonProps} valuePropName="checked">
             <Checkbox.Group>
               {field.options.map(option => (
@@ -681,13 +1201,76 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
                 >
                   {isMobile ? 'Save' : 'Save Draft'}
                 </Button>
-                <Tooltip title={autoSaveEnabled ? 'Auto-save enabled' : 'Auto-save disabled'}>
+                <Tooltip title={autoSaveEnabled ? 'Auto-save enabled (every 30s)' : 'Auto-save disabled'}>
                   <Button
                     type={autoSaveEnabled ? 'primary' : 'default'}
                     size="small"
                     onClick={() => setAutoSaveEnabled(!autoSaveEnabled)}
                   >
                     Auto
+                  </Button>
+                </Tooltip>
+                <Tooltip title="View completion summary">
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      const summaryData = questionnaireSteps.map((step, index) => {
+                        const status = getStepCompletionStatus(index);
+                        const stepQueries = queries.filter(q => q.stepNumber === index);
+                        return {
+                          step: index + 1,
+                          title: step.title,
+                          completed: status.requiredCompleted,
+                          required: status.required,
+                          percentage: status.required > 0 ? Math.round((status.requiredCompleted / status.required) * 100) : 100,
+                          openQueries: stepQueries.filter(q => q.status === 'OPEN').length,
+                          resolvedQueries: stepQueries.filter(q => q.status === 'RESOLVED').length
+                        };
+                      });
+                      
+                      Modal.info({
+                        title: 'Questionnaire Summary',
+                        width: 600,
+                        content: (
+                          <div>
+                            <div style={{ marginBottom: 16 }}>
+                              <Text strong>Overall Progress: {getOverallCompletionPercentage()}%</Text>
+                            </div>
+                            {summaryData.map(step => (
+                              <div key={step.step} style={{ 
+                                marginBottom: 12, 
+                                padding: '8px 12px', 
+                                backgroundColor: step.percentage === 100 ? '#f6ffed' : '#fff7e6',
+                                border: `1px solid ${step.percentage === 100 ? '#b7eb8f' : '#ffd591'}`,
+                                borderRadius: '4px'
+                              }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <Text strong>Step {step.step}: {step.title}</Text>
+                                  <Tag color={step.percentage === 100 ? 'green' : 'orange'}>
+                                    {step.percentage}%
+                                  </Tag>
+                                </div>
+                                <div style={{ fontSize: '12px', color: '#666', marginTop: 4 }}>
+                                  {step.completed}/{step.required} required fields completed
+                                  {step.openQueries > 0 && (
+                                    <span style={{ color: '#ff4d4f', marginLeft: 8 }}>
+                                      • {step.openQueries} open queries
+                                    </span>
+                                  )}
+                                  {step.resolvedQueries > 0 && (
+                                    <span style={{ color: '#52c41a', marginLeft: 8 }}>
+                                      • {step.resolvedQueries} resolved queries
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )
+                      });
+                    }}
+                  >
+                    Summary
                   </Button>
                 </Tooltip>
               </Space>
@@ -697,7 +1280,16 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
             {isOffline && (
               <Alert
                 message="Offline Mode"
-                description="You are currently offline. Changes will be saved locally and synced when connection is restored."
+                description={
+                  <Space direction="vertical" size="small">
+                    <span>You are currently offline. Changes will be saved locally and synced when connection is restored.</span>
+                    {pendingChanges && (
+                      <span style={{ color: '#fa8c16' }}>
+                        <CloudSyncOutlined /> Pending changes will be synced automatically
+                      </span>
+                    )}
+                  </Space>
+                }
                 type="warning"
                 showIcon
                 style={{ marginBottom: 16 }}
@@ -705,13 +1297,71 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
               />
             )}
 
-            {/* Progress Indicator */}
+            {/* Enhanced Progress Indicator */}
             <div style={{ marginBottom: 24 }}>
-              <Progress
-                percent={progress}
-                status="active"
-                format={() => `Step ${currentStep + 1}/${questionnaireSteps.length}`}
-              />
+              <Row gutter={[16, 8]} align="middle">
+                <Col xs={24} sm={16}>
+                  <Progress
+                    percent={getOverallCompletionPercentage()}
+                    status="active"
+                    format={() => `${getOverallCompletionPercentage()}% Complete`}
+                    strokeColor={{
+                      '0%': '#108ee9',
+                      '100%': '#87d068',
+                    }}
+                  />
+                  <div style={{ marginTop: 4, fontSize: '12px', color: '#666' }}>
+                    Step {currentStep + 1} of {questionnaireSteps.length}: {currentStepData.title}
+                  </div>
+                  {/* Step-specific progress */}
+                  <div style={{ marginTop: 2 }}>
+                    <Progress
+                      percent={(() => {
+                        const status = getStepCompletionStatus(currentStep);
+                        return status.required > 0 ? Math.round((status.requiredCompleted / status.required) * 100) : 100;
+                      })()}
+                      size="small"
+                      showInfo={false}
+                      strokeColor="#52c41a"
+                      trailColor="#f0f0f0"
+                    />
+                    <Text style={{ fontSize: '11px', color: '#999' }}>
+                      Current step progress
+                    </Text>
+                  </div>
+                </Col>
+                <Col xs={24} sm={8}>
+                  <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                    <Text style={{ fontSize: '12px', color: '#666' }}>
+                      Current Step: {(() => {
+                        const status = getStepCompletionStatus(currentStep);
+                        return `${status.requiredCompleted}/${status.required} required fields`;
+                      })()}
+                    </Text>
+                    <Text style={{ fontSize: '12px', color: '#666' }}>
+                      Overall: {completedSteps.size}/{questionnaireSteps.length} steps completed
+                    </Text>
+                    <Text style={{ fontSize: '12px', color: '#666' }}>
+                      Total Fields: {Object.keys(formData).length}/{questionnaireSteps.reduce((sum, step) => sum + step.fields.length, 0)} filled
+                    </Text>
+                    {Object.keys(formData).length > 0 && (
+                      <Text style={{ fontSize: '12px', color: '#52c41a' }}>
+                        <CheckCircleOutlined /> Draft saved
+                      </Text>
+                    )}
+                    {pendingChanges && (
+                      <Text style={{ fontSize: '12px', color: '#fa8c16' }}>
+                        <CloudSyncOutlined /> Pending sync
+                      </Text>
+                    )}
+                    {queries.filter(q => q.status === 'RESOLVED' && q.stepNumber === currentStep).length > 0 && (
+                      <Text style={{ fontSize: '12px', color: '#52c41a' }}>
+                        <CheckCircleOutlined /> {queries.filter(q => q.status === 'RESOLVED' && q.stepNumber === currentStep).length} queries resolved
+                      </Text>
+                    )}
+                  </Space>
+                </Col>
+              </Row>
             </div>
 
             {/* Steps Navigation */}
@@ -722,22 +1372,47 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
                 style={{ marginBottom: 24 }}
                 size="small"
               >
-                {questionnaireSteps.map((step, index) => (
-                  <Step
-                    key={index}
-                    title={step.title}
-                    description={step.description}
-                    status={
-                      completedSteps.has(index) ? 'finish' :
-                      index === currentStep ? 'process' : 'wait'
-                    }
-                    icon={
-                      completedSteps.has(index) ? <CheckCircleOutlined /> :
-                      queries.some(q => q.stepNumber === index && q.status === 'OPEN') ? 
-                        <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} /> : undefined
-                    }
-                  />
-                ))}
+                {questionnaireSteps.map((step, index) => {
+                  const stepStatus = getStepCompletionStatus(index);
+                  const hasOpenQueries = queries.some(q => q.stepNumber === index && q.status === 'OPEN');
+                  const hasResolvedQueries = queries.some(q => q.stepNumber === index && q.status === 'RESOLVED');
+                  
+                  let stepIcon = undefined;
+                  if (stepStatus.isComplete) {
+                    stepIcon = <CheckCircleOutlined style={{ color: '#52c41a' }} />;
+                  } else if (hasOpenQueries) {
+                    stepIcon = <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />;
+                  } else if (hasResolvedQueries) {
+                    stepIcon = <QuestionCircleOutlined style={{ color: '#1890ff' }} />;
+                  }
+                  
+                  return (
+                    <Step
+                      key={index}
+                      title={step.title}
+                      description={
+                        <div>
+                          <div style={{ fontSize: '11px', color: '#666' }}>
+                            {step.description}
+                          </div>
+                          <div style={{ fontSize: '10px', color: '#999', marginTop: 2 }}>
+                            {stepStatus.requiredCompleted}/{stepStatus.required} required
+                            {hasOpenQueries && (
+                              <span style={{ color: '#ff4d4f', marginLeft: 4 }}>
+                                • {queries.filter(q => q.stepNumber === index && q.status === 'OPEN').length} open queries
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      }
+                      status={
+                        stepStatus.isComplete ? 'finish' :
+                        index === currentStep ? 'process' : 'wait'
+                      }
+                      icon={stepIcon}
+                    />
+                  );
+                })}
               </Steps>
             )}
 
@@ -747,6 +1422,50 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
                 <div style={{ textAlign: 'center' }}>
                   <h4>{currentStepData.title}</h4>
                   <p style={{ margin: 0, color: '#666' }}>{currentStepData.description}</p>
+                  <div style={{ marginTop: 8, fontSize: '12px' }}>
+                    <Space direction="vertical" size="small">
+                      <Space>
+                        <Text type="secondary">
+                          {(() => {
+                            const status = getStepCompletionStatus(currentStep);
+                            return `${status.requiredCompleted}/${status.required} required fields`;
+                          })()}
+                        </Text>
+                        {queries.filter(q => q.stepNumber === currentStep && q.status === 'OPEN').length > 0 && (
+                          <Tag color="red" size="small">
+                            {queries.filter(q => q.stepNumber === currentStep && q.status === 'OPEN').length} open queries
+                          </Tag>
+                        )}
+                        {queries.filter(q => q.stepNumber === currentStep && q.status === 'RESOLVED').length > 0 && (
+                          <Tag color="green" size="small">
+                            {queries.filter(q => q.stepNumber === currentStep && q.status === 'RESOLVED').length} resolved
+                          </Tag>
+                        )}
+                      </Space>
+                      {/* Mobile step navigation */}
+                      <div style={{ marginTop: 8 }}>
+                        <Space>
+                          <Button 
+                            size="small" 
+                            disabled={currentStep === 0}
+                            onClick={handlePrevious}
+                          >
+                            ← Prev
+                          </Button>
+                          <Text style={{ fontSize: '11px' }}>
+                            {currentStep + 1} / {questionnaireSteps.length}
+                          </Text>
+                          <Button 
+                            size="small" 
+                            disabled={currentStep === questionnaireSteps.length - 1}
+                            onClick={handleNext}
+                          >
+                            Next →
+                          </Button>
+                        </Space>
+                      </div>
+                    </Space>
+                  </div>
                 </div>
               </Card>
             )}

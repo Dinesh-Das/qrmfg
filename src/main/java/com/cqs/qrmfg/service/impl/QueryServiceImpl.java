@@ -9,8 +9,9 @@ import com.cqs.qrmfg.model.Query;
 import com.cqs.qrmfg.model.QueryStatus;
 import com.cqs.qrmfg.model.QueryTeam;
 import com.cqs.qrmfg.model.WorkflowState;
-import com.cqs.qrmfg.repository.MaterialWorkflowRepository;
+import com.cqs.qrmfg.repository.WorkflowRepository;
 import com.cqs.qrmfg.repository.QueryRepository;
+import com.cqs.qrmfg.service.NotificationService;
 import com.cqs.qrmfg.service.QueryService;
 import com.cqs.qrmfg.service.WorkflowService;
 import org.slf4j.Logger;
@@ -34,10 +35,13 @@ public class QueryServiceImpl implements QueryService {
     private QueryRepository queryRepository;
     
     @Autowired
-    private MaterialWorkflowRepository workflowRepository;
+    private WorkflowRepository workflowRepository;
     
     @Autowired
     private WorkflowService workflowService;
+    
+    @Autowired
+    private NotificationService notificationService;
     
     // Basic CRUD operations
     @Override
@@ -99,7 +103,7 @@ public class QueryServiceImpl implements QueryService {
         Query query = new Query(workflow, question, stepNumber, fieldName, assignedTeam, raisedBy);
         
         logger.info("Creating query for workflow {} assigned to {} by user: {}", 
-                   workflow.getMaterialId(), assignedTeam, raisedBy);
+                   workflow.getMaterialCode(), assignedTeam, raisedBy);
         
         Query savedQuery = queryRepository.save(query);
         
@@ -107,22 +111,34 @@ public class QueryServiceImpl implements QueryService {
         WorkflowState queryState = assignedTeam.getCorrespondingWorkflowState();
         workflowService.transitionToState(workflowId, queryState, raisedBy);
         
+        // Send comprehensive notifications for query creation
+        try {
+            // Notify the assigned team about the new query
+            notificationService.notifyQueryRaised(savedQuery);
+            
+            // Also notify as a query assignment to the team
+            notificationService.notifyQueryAssigned(savedQuery, raisedBy);
+        } catch (Exception e) {
+            logger.warn("Failed to send query raised notification for query {}: {}", 
+                       savedQuery.getId(), e.getMessage());
+        }
+        
         return savedQuery;
     }
     
     @Override
-    public Query createQuery(String materialId, String question, QueryTeam assignedTeam, String raisedBy) {
-        MaterialWorkflow workflow = workflowRepository.findByMaterialId(materialId)
-            .orElseThrow(() -> WorkflowNotFoundException.forMaterialId(materialId));
+    public Query createQuery(String materialCode, String question, QueryTeam assignedTeam, String raisedBy) {
+        MaterialWorkflow workflow = workflowRepository.findByMaterialCode(materialCode)
+            .stream().findFirst().orElseThrow(() -> WorkflowNotFoundException.forMaterialCode(materialCode));
         
         return createQuery(workflow.getId(), question, assignedTeam, raisedBy);
     }
     
     @Override
-    public Query createQuery(String materialId, String question, Integer stepNumber, String fieldName,
+    public Query createQuery(String materialCode, String question, Integer stepNumber, String fieldName,
                            QueryTeam assignedTeam, String raisedBy) {
-        MaterialWorkflow workflow = workflowRepository.findByMaterialId(materialId)
-            .orElseThrow(() -> WorkflowNotFoundException.forMaterialId(materialId));
+        MaterialWorkflow workflow = workflowRepository.findByMaterialCode(materialCode)
+            .stream().findFirst().orElseThrow(() -> WorkflowNotFoundException.forMaterialCode(materialCode));
         
         return createQuery(workflow.getId(), question, stepNumber, fieldName, assignedTeam, raisedBy);
     }
@@ -145,7 +161,7 @@ public class QueryServiceImpl implements QueryService {
         }
         
         logger.info("Resolving query {} for workflow {} by user: {}", 
-                   queryId, query.getWorkflow().getMaterialId(), resolvedBy);
+                   queryId, query.getWorkflow().getMaterialCode(), resolvedBy);
         
         query.resolve(response, resolvedBy);
         
@@ -154,6 +170,14 @@ public class QueryServiceImpl implements QueryService {
         }
         
         Query resolvedQuery = queryRepository.save(query);
+        
+        // Send notification for query resolution
+        try {
+            notificationService.notifyQueryResolved(resolvedQuery);
+        } catch (Exception e) {
+            logger.warn("Failed to send query resolved notification for query {}: {}", 
+                       resolvedQuery.getId(), e.getMessage());
+        }
         
         // Check if workflow can return to PLANT_PENDING state
         MaterialWorkflow workflow = query.getWorkflow();
@@ -195,6 +219,14 @@ public class QueryServiceImpl implements QueryService {
         
         Query updatedQuery = queryRepository.save(query);
         
+        // Send notification for query assignment
+        try {
+            notificationService.notifyQueryAssigned(updatedQuery, updatedBy);
+        } catch (Exception e) {
+            logger.warn("Failed to send query assignment notification for query {}: {}", 
+                       updatedQuery.getId(), e.getMessage());
+        }
+        
         // Update workflow state if necessary
         WorkflowState newState = newTeam.getCorrespondingWorkflowState();
         workflowService.transitionToState(query.getWorkflow().getId(), newState, updatedBy);
@@ -235,8 +267,8 @@ public class QueryServiceImpl implements QueryService {
     
     @Override
     @Transactional(readOnly = true)
-    public List<Query> findByMaterialId(String materialId) {
-        return queryRepository.findByMaterialId(materialId);
+    public List<Query> findByMaterialCode(String materialCode) {
+        return queryRepository.findByMaterialCode(materialCode);
     }
     
     @Override
@@ -348,14 +380,14 @@ public class QueryServiceImpl implements QueryService {
     @Override
     @Transactional(readOnly = true)
     public double getAverageResolutionTimeHours(QueryTeam team) {
-        Double avgTime = queryRepository.getAverageResolutionTimeHours(team);
+        Double avgTime = queryRepository.getAverageResolutionTimeHours(team.name());
         return avgTime != null ? avgTime : 0.0;
     }
     
     @Override
     @Transactional(readOnly = true)
     public double getAverageResolutionTimeHours(QueryTeam team, LocalDateTime start, LocalDateTime end) {
-        Double avgTime = queryRepository.getAverageResolutionTimeHours(team, start, end);
+        Double avgTime = queryRepository.getAverageResolutionTimeHours(team.name(), start, end);
         return avgTime != null ? avgTime : 0.0;
     }
     
@@ -418,7 +450,7 @@ public class QueryServiceImpl implements QueryService {
         if (workflow.getState() != WorkflowState.PLANT_PENDING) {
             throw new QueryException(
                 String.format("Cannot create query for workflow %s in state %s. Must be in PLANT_PENDING state.",
-                             workflow.getMaterialId(), workflow.getState()));
+                             workflow.getMaterialCode(), workflow.getState()));
         }
         
         // Validate team assignment
@@ -483,5 +515,12 @@ public class QueryServiceImpl implements QueryService {
     @Transactional(readOnly = true)
     public boolean hasWorkflowOpenQueries(Long workflowId) {
         return queryRepository.hasWorkflowOpenQueries(workflowId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Query> searchQueriesWithContext(String materialCode, String projectCode, String plantCode, String blockId, String team, String status, String priority, int minDaysOpen) {
+        // TODO: Implement actual search logic
+        return java.util.Collections.emptyList();
     }
 }

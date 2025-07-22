@@ -1,6 +1,6 @@
 package com.cqs.qrmfg.exception;
 
-public class QueryException extends RuntimeException {
+public class QueryException extends WorkflowException {
     public QueryException(String message) {
         super(message);
     }

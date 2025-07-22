@@ -188,7 +188,7 @@ public class QuestionnaireResponse {
     @Override
     public String toString() {
         return String.format("QuestionnaireResponse{id=%d, workflow=%s, step=%d, field='%s', value='%s'}", 
-                           id, workflow != null ? workflow.getMaterialId() : null, stepNumber, fieldName, 
+                           id, workflow != null ? workflow.getId() : null, stepNumber, fieldName, 
                            fieldValue != null && fieldValue.length() > 50 ? fieldValue.substring(0, 50) + "..." : fieldValue);
     }
 }

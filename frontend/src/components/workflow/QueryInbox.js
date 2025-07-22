@@ -33,6 +33,7 @@ import {
 import { queryAPI } from '../../services/queryAPI';
 import QueryResponseEditor from './QueryResponseEditor';
 import MaterialContextDisplay from './MaterialContextDisplay';
+import QueryHistoryTracker from './QueryHistoryTracker';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -50,7 +51,10 @@ const QueryInbox = ({ team, userRole }) => {
     status: 'all',
     priority: 'all',
     material: '',
-    daysOpen: 'all'
+    daysOpen: 'all',
+    project: '',
+    plant: '',
+    assignedTeam: 'all'
   });
   const [stats, setStats] = useState({
     total: 0,
@@ -120,10 +124,27 @@ const QueryInbox = ({ team, userRole }) => {
     }
 
     if (filters.material) {
-      filtered = filtered.filter(q => 
-        q.materialId?.toLowerCase().includes(filters.material.toLowerCase()) ||
+      filtered = filtered.filter(q =>
+        q.materialCode?.toLowerCase().includes(filters.material.toLowerCase()) ||
         q.materialName?.toLowerCase().includes(filters.material.toLowerCase())
       );
+    }
+
+    if (filters.project) {
+      filtered = filtered.filter(q =>
+        q.projectCode?.toLowerCase().includes(filters.project.toLowerCase())
+      );
+    }
+
+    if (filters.plant) {
+      filtered = filtered.filter(q =>
+        q.plantCode?.toLowerCase().includes(filters.plant.toLowerCase()) ||
+        q.blockId?.toLowerCase().includes(filters.plant.toLowerCase())
+      );
+    }
+
+    if (filters.assignedTeam !== 'all') {
+      filtered = filtered.filter(q => q.assignedTeam === filters.assignedTeam);
     }
 
     if (filters.daysOpen !== 'all') {
@@ -189,22 +210,32 @@ const QueryInbox = ({ team, userRole }) => {
     let status = 'normal';
     if (progress >= 100) status = 'exception';
     else if (progress >= 80) status = 'active';
-    
+
     return { progress, status };
   };
 
   const columns = [
     {
-      title: 'Material ID',
-      dataIndex: 'materialId',
-      key: 'materialId',
-      width: 120,
+      title: 'Material Context',
+      dataIndex: 'materialCode',
+      key: 'materialContext',
+      width: 180,
       render: (text, record) => (
         <div>
           <Text strong>{text}</Text>
           {record.materialName && (
             <div style={{ fontSize: '12px', color: '#666' }}>
               {record.materialName}
+            </div>
+          )}
+          {record.projectCode && (
+            <div style={{ fontSize: '11px', color: '#999' }}>
+              Project: {record.projectCode}
+            </div>
+          )}
+          {record.plantCode && record.blockId && (
+            <div style={{ fontSize: '11px', color: '#999' }}>
+              Plant: {record.plantCode} | Block: {record.blockId}
             </div>
           )}
         </div>
@@ -271,8 +302,8 @@ const QueryInbox = ({ team, userRole }) => {
             <Text style={{ color: getDaysOpenColor(days) }}>
               {days} days
             </Text>
-            <Progress 
-              percent={progress} 
+            <Progress
+              percent={progress}
               status={status}
               size="small"
               showInfo={false}
@@ -368,9 +399,9 @@ const QueryInbox = ({ team, userRole }) => {
         </Col>
       </Row>
 
-      {/* Filters */}
+      {/* Enhanced Filters */}
       <Card size="small" style={{ marginBottom: 16 }}>
-        <Row gutter={16} align="middle">
+        <Row gutter={[16, 8]} align="middle">
           <Col span={4}>
             <Select
               placeholder="Status"
@@ -405,6 +436,33 @@ const QueryInbox = ({ team, userRole }) => {
             />
           </Col>
           <Col span={4}>
+            <Input
+              placeholder="Project Code"
+              value={filters.project}
+              onChange={(e) => setFilters({ ...filters, project: e.target.value })}
+            />
+          </Col>
+          <Col span={4}>
+            <Input
+              placeholder="Plant/Block"
+              value={filters.plant}
+              onChange={(e) => setFilters({ ...filters, plant: e.target.value })}
+            />
+          </Col>
+          <Col span={4}>
+            <Select
+              placeholder="Team"
+              value={filters.assignedTeam}
+              onChange={(value) => setFilters({ ...filters, assignedTeam: value })}
+              style={{ width: '100%' }}
+            >
+              <Option value="all">All Teams</Option>
+              <Option value="CQS">CQS</Option>
+              <Option value="TECH">Tech</Option>
+              <Option value="JVC">JVC</Option>
+            </Select>
+          </Col>
+          <Col span={4}>
             <Select
               placeholder="Days Open"
               value={filters.daysOpen}
@@ -434,7 +492,10 @@ const QueryInbox = ({ team, userRole }) => {
                   status: 'all',
                   priority: 'all',
                   material: '',
-                  daysOpen: 'all'
+                  daysOpen: 'all',
+                  project: '',
+                  plant: '',
+                  assignedTeam: 'all'
                 })}
               >
                 Clear Filters
@@ -465,7 +526,7 @@ const QueryInbox = ({ team, userRole }) => {
             style={{ marginBottom: 16 }}
           />
         )}
-        
+
         <Table
           dataSource={filteredQueries}
           columns={columns}
@@ -474,18 +535,18 @@ const QueryInbox = ({ team, userRole }) => {
             pageSize: 10,
             showSizeChanger: true,
             showQuickJumper: true,
-            showTotal: (total, range) => 
+            showTotal: (total, range) =>
               `${range[0]}-${range[1]} of ${total} queries`
           }}
           rowKey="id"
           size="small"
-          rowClassName={(record) => 
+          rowClassName={(record) =>
             record.daysOpen >= 3 ? 'overdue-row' : ''
           }
         />
       </Card>
 
-      {/* Query Detail Modal */}
+      {/* Enhanced Query Detail Modal */}
       <Modal
         title={`Query #${selectedQuery?.id} Details`}
         open={detailModalVisible}
@@ -510,94 +571,141 @@ const QueryInbox = ({ team, userRole }) => {
             </Button>
           )
         ]}
-        width={700}
+        width={1200}
       >
         {selectedQuery && (
-          <div>
-            <Row gutter={16}>
-              <Col span={12}>
-                <Text strong>Material ID:</Text> {selectedQuery.materialId}
-              </Col>
-              <Col span={12}>
-                <Text strong>Status:</Text>{' '}
-                <Tag color={getStatusColor(selectedQuery.status)}>
-                  {selectedQuery.status}
-                </Tag>
-              </Col>
-            </Row>
-            <Divider />
-            
-            <Row gutter={16}>
-              <Col span={12}>
-                <Text strong>Priority:</Text>{' '}
-                <Tag color={getPriorityColor(selectedQuery.priorityLevel)}>
-                  {selectedQuery.priorityLevel || 'MEDIUM'}
-                </Tag>
-              </Col>
-              <Col span={12}>
-                <Text strong>Days Open:</Text>{' '}
-                <Text style={{ color: getDaysOpenColor(selectedQuery.daysOpen) }}>
-                  {selectedQuery.daysOpen} days
-                </Text>
-              </Col>
-            </Row>
-            <Divider />
-            
-            {selectedQuery.fieldContext && (
-              <>
-                <Text strong>Field Context:</Text> {selectedQuery.fieldContext}
+          <Row gutter={16}>
+            <Col span={14}>
+              {/* Query Details */}
+              <div>
+                <Row gutter={16}>
+                  <Col span={12}>
+                    <Text strong>Material Code:</Text> {selectedQuery.materialCode}
+                    {selectedQuery.materialName && (
+                      <div style={{ fontSize: '12px', color: '#666' }}>
+                        {selectedQuery.materialName}
+                      </div>
+                    )}
+                  </Col>
+                  <Col span={12}>
+                    <Text strong>Status:</Text>{' '}
+                    <Tag color={getStatusColor(selectedQuery.status)}>
+                      {selectedQuery.status}
+                    </Tag>
+                  </Col>
+                </Row>
                 <Divider />
-              </>
-            )}
-            
-            {selectedQuery.stepNumber && (
-              <>
-                <Text strong>Step Number:</Text> {selectedQuery.stepNumber}
+
+                <Row gutter={16}>
+                  <Col span={8}>
+                    <Text strong>Priority:</Text>{' '}
+                    <Tag color={getPriorityColor(selectedQuery.priorityLevel)}>
+                      {selectedQuery.priorityLevel || 'MEDIUM'}
+                    </Tag>
+                  </Col>
+                  <Col span={8}>
+                    <Text strong>Team:</Text>{' '}
+                    <Tag color={selectedQuery.assignedTeam === 'CQS' ? 'blue' : selectedQuery.assignedTeam === 'TECH' ? 'purple' : 'orange'}>
+                      {selectedQuery.assignedTeam}
+                    </Tag>
+                  </Col>
+                  <Col span={8}>
+                    <Text strong>Days Open:</Text>{' '}
+                    <Text style={{ color: getDaysOpenColor(selectedQuery.daysOpen) }}>
+                      {selectedQuery.daysOpen} days
+                    </Text>
+                  </Col>
+                </Row>
                 <Divider />
-              </>
-            )}
-            
-            <Text strong>Question:</Text>
-            <div style={{ 
-              marginTop: 8, 
-              padding: 12, 
-              background: '#f5f5f5', 
-              borderRadius: 4,
-              whiteSpace: 'pre-wrap'
-            }}>
-              {selectedQuery.question}
-            </div>
-            
-            {selectedQuery.response && (
-              <>
-                <Divider />
-                <Text strong>Response:</Text>
-                <div style={{ 
-                  marginTop: 8, 
-                  padding: 12, 
-                  background: '#f0f9ff', 
+
+                {/* Enhanced Context Information */}
+                {(selectedQuery.projectCode || selectedQuery.plantCode || selectedQuery.blockId) && (
+                  <>
+                    <Row gutter={16}>
+                      {selectedQuery.projectCode && (
+                        <Col span={8}>
+                          <Text strong>Project:</Text> {selectedQuery.projectCode}
+                        </Col>
+                      )}
+                      {selectedQuery.plantCode && (
+                        <Col span={8}>
+                          <Text strong>Plant:</Text> {selectedQuery.plantCode}
+                        </Col>
+                      )}
+                      {selectedQuery.blockId && (
+                        <Col span={8}>
+                          <Text strong>Block:</Text> {selectedQuery.blockId}
+                        </Col>
+                      )}
+                    </Row>
+                    <Divider />
+                  </>
+                )}
+
+                {selectedQuery.fieldName && (
+                  <>
+                    <Text strong>Field Context:</Text> {selectedQuery.fieldName}
+                    {selectedQuery.stepNumber && ` (Step ${selectedQuery.stepNumber})`}
+                    <Divider />
+                  </>
+                )}
+
+                <Text strong>Question:</Text>
+                <div style={{
+                  marginTop: 8,
+                  padding: 12,
+                  background: '#f5f5f5',
                   borderRadius: 4,
                   whiteSpace: 'pre-wrap'
                 }}>
-                  {selectedQuery.response}
+                  {selectedQuery.question}
                 </div>
-                <div style={{ marginTop: 8, fontSize: '12px', color: '#666' }}>
-                  Resolved by: {selectedQuery.resolvedBy} on{' '}
-                  {selectedQuery.resolvedAt && new Date(selectedQuery.resolvedAt).toLocaleString()}
+
+                {selectedQuery.response && (
+                  <>
+                    <Divider />
+                    <Text strong>Response:</Text>
+                    <div style={{
+                      marginTop: 8,
+                      padding: 12,
+                      background: '#f0f9ff',
+                      borderRadius: 4,
+                      whiteSpace: 'pre-wrap'
+                    }}>
+                      {selectedQuery.response}
+                    </div>
+                    <div style={{ marginTop: 8, fontSize: '12px', color: '#666' }}>
+                      Resolved by: {selectedQuery.resolvedBy} on{' '}
+                      {selectedQuery.resolvedAt && new Date(selectedQuery.resolvedAt).toLocaleString()}
+                    </div>
+                  </>
+                )}
+
+                <Divider />
+                <div style={{ fontSize: '12px', color: '#666' }}>
+                  <div>Raised by: {selectedQuery.raisedBy}</div>
+                  <div>Created: {selectedQuery.createdAt && new Date(selectedQuery.createdAt).toLocaleString()}</div>
                 </div>
-              </>
-            )}
-            
-            <Divider />
-            <div style={{ fontSize: '12px', color: '#666' }}>
-              <div>Raised by: {selectedQuery.raisedBy}</div>
-              <div>Created: {selectedQuery.createdAt && new Date(selectedQuery.createdAt).toLocaleString()}</div>
-            </div>
-          </div>
+              </div>
+            </Col>
+            <Col span={10}>
+              {/* Material Context and Query History */}
+              <MaterialContextDisplay
+                materialCode={selectedQuery.materialCode}
+                workflowId={selectedQuery.workflowId}
+                compact={true}
+              />
+              <QueryHistoryTracker
+                materialCode={selectedQuery.materialCode}
+                workflowId={selectedQuery.workflowId}
+                compact={true}
+              />
+            </Col>
+          </Row>
         )}
       </Modal>
 
-      {/* Resolve Query Modal */}
+      {/* Enhanced Resolve Query Modal */}
       <Modal
         title={`Resolve Query #${selectedQuery?.id}`}
         open={resolveModalVisible}
@@ -607,33 +715,96 @@ const QueryInbox = ({ team, userRole }) => {
           setSelectedQuery(null);
         }}
         onOk={() => resolveForm.submit()}
-        width={1000}
+        width={1400}
+        okText="Resolve Query"
+        okButtonProps={{
+          type: 'primary',
+          size: 'large'
+        }}
+        cancelButtonProps={{
+          size: 'large'
+        }}
       >
         {selectedQuery && (
           <Row gutter={16}>
-            <Col span={14}>
-              <div style={{ 
-                marginBottom: 16, 
-                padding: 12, 
-                background: '#f5f5f5', 
-                borderRadius: 4 
+            <Col span={16}>
+              {/* Query Context */}
+              <div style={{
+                marginBottom: 16,
+                padding: 16,
+                background: '#f5f5f5',
+                borderRadius: 6,
+                border: '1px solid #d9d9d9'
               }}>
+                <Row gutter={16} style={{ marginBottom: 12 }}>
+                  <Col span={12}>
+                    <Text strong>Material:</Text> {selectedQuery.materialCode}
+                    {selectedQuery.materialName && (
+                      <div style={{ fontSize: '12px', color: '#666' }}>
+                        {selectedQuery.materialName}
+                      </div>
+                    )}
+                  </Col>
+                  <Col span={12}>
+                    <Space>
+                      <Text strong>Team:</Text>
+                      <Tag color={selectedQuery.assignedTeam === 'CQS' ? 'blue' : selectedQuery.assignedTeam === 'TECH' ? 'purple' : 'orange'}>
+                        {selectedQuery.assignedTeam}
+                      </Tag>
+                      <Text strong>Priority:</Text>
+                      <Tag color={getPriorityColor(selectedQuery.priorityLevel)}>
+                        {selectedQuery.priorityLevel || 'MEDIUM'}
+                      </Tag>
+                    </Space>
+                  </Col>
+                </Row>
+
+                {(selectedQuery.projectCode || selectedQuery.plantCode || selectedQuery.blockId) && (
+                  <Row gutter={16} style={{ marginBottom: 12 }}>
+                    {selectedQuery.projectCode && (
+                      <Col span={8}>
+                        <Text strong>Project:</Text> {selectedQuery.projectCode}
+                      </Col>
+                    )}
+                    {selectedQuery.plantCode && (
+                      <Col span={8}>
+                        <Text strong>Plant:</Text> {selectedQuery.plantCode}
+                      </Col>
+                    )}
+                    {selectedQuery.blockId && (
+                      <Col span={8}>
+                        <Text strong>Block:</Text> {selectedQuery.blockId}
+                      </Col>
+                    )}
+                  </Row>
+                )}
+
                 <Text strong>Question:</Text>
-                <div style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>
+                <div style={{ marginTop: 8, whiteSpace: 'pre-wrap', fontSize: '14px' }}>
                   {selectedQuery.question}
                 </div>
-                {selectedQuery.fieldContext && (
+
+                {selectedQuery.fieldName && (
                   <div style={{ marginTop: 8 }}>
-                    <Text strong>Field Context:</Text> {selectedQuery.fieldContext}
+                    <Text strong>Field Context:</Text> {selectedQuery.fieldName}
+                    {selectedQuery.stepNumber && ` (Step ${selectedQuery.stepNumber})`}
                   </div>
                 )}
-                {selectedQuery.stepNumber && (
-                  <div style={{ marginTop: 4 }}>
-                    <Text strong>Step:</Text> {selectedQuery.stepNumber}
-                  </div>
-                )}
+
+                <div style={{ marginTop: 8, fontSize: '12px', color: '#666' }}>
+                  <Space>
+                    <span>Raised by: {selectedQuery.raisedBy}</span>
+                    <span>•</span>
+                    <span>{selectedQuery.createdAt && new Date(selectedQuery.createdAt).toLocaleString()}</span>
+                    <span>•</span>
+                    <span style={{ color: getDaysOpenColor(selectedQuery.daysOpen) }}>
+                      {selectedQuery.daysOpen} days open
+                    </span>
+                  </Space>
+                </div>
               </div>
-              
+
+              {/* Resolution Form */}
               <Form
                 form={resolveForm}
                 layout="vertical"
@@ -641,32 +812,55 @@ const QueryInbox = ({ team, userRole }) => {
               >
                 <Form.Item
                   name="response"
-                  label="Resolution Response"
+                  label={
+                    <Space>
+                      <span>Resolution Response</span>
+                      <Text type="secondary">(Required)</Text>
+                    </Space>
+                  }
                   rules={[{ required: true, message: 'Please provide a resolution response' }]}
                 >
                   <QueryResponseEditor
-                    placeholder="Provide detailed resolution or answer to the query..."
+                    placeholder="Provide detailed resolution or answer to the query. Include any relevant technical details, safety considerations, or references to documentation..."
                   />
                 </Form.Item>
-                
-                <Form.Item
-                  name="priorityLevel"
-                  label="Update Priority (Optional)"
-                  initialValue={selectedQuery.priorityLevel || 'MEDIUM'}
-                >
-                  <Select>
-                    <Option value="LOW">Low</Option>
-                    <Option value="MEDIUM">Medium</Option>
-                    <Option value="HIGH">High</Option>
-                    <Option value="URGENT">Urgent</Option>
-                  </Select>
-                </Form.Item>
+
+                <Row gutter={16}>
+                  <Col span={12}>
+                    <Form.Item
+                      name="priorityLevel"
+                      label="Update Priority (Optional)"
+                      initialValue={selectedQuery.priorityLevel || 'MEDIUM'}
+                    >
+                      <Select size="large">
+                        <Option value="LOW">Low Priority</Option>
+                        <Option value="MEDIUM">Medium Priority</Option>
+                        <Option value="HIGH">High Priority</Option>
+                        <Option value="URGENT">Urgent Priority</Option>
+                      </Select>
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <div style={{ marginTop: 30 }}>
+                      <Text type="secondary">
+                        This resolution will be sent to the plant team and the workflow will continue.
+                      </Text>
+                    </div>
+                  </Col>
+                </Row>
               </Form>
             </Col>
-            <Col span={10}>
+            <Col span={8}>
+              {/* Context and History */}
               <MaterialContextDisplay
-                materialId={selectedQuery.materialId}
+                materialCode={selectedQuery.materialCode}
                 workflowId={selectedQuery.workflowId}
+                compact={true}
+              />
+              <QueryHistoryTracker
+                materialCode={selectedQuery.materialCode}
+                workflowId={selectedQuery.workflowId}
+                compact={true}
               />
             </Col>
           </Row>

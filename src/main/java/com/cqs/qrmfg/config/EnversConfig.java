@@ -2,6 +2,7 @@ package com.cqs.qrmfg.config;
 
 import org.hibernate.envers.RevisionListener;
 import org.hibernate.envers.RevisionEntity;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import com.cqs.qrmfg.model.User;
@@ -60,11 +61,14 @@ public class EnversConfig {
             if (auth != null && auth.getPrincipal() instanceof User) {
                 User user = (User) auth.getPrincipal();
                 revision.setUsername(user.getUsername());
-            } else if (auth != null && auth.getName() != null) {
+            } else if (auth != null && auth.getName() != null && !"anonymousUser".equals(auth.getName())) {
                 revision.setUsername(auth.getName());
             } else {
                 revision.setUsername("SYSTEM");
             }
+            
+            // Set revision date
+            revision.setRevisionDate(LocalDateTime.now());
         }
     }
 }

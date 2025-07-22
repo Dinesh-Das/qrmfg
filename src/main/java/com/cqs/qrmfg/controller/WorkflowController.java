@@ -1,5 +1,6 @@
 package com.cqs.qrmfg.controller;
 
+import com.cqs.qrmfg.dto.DocumentSummary;
 import com.cqs.qrmfg.dto.WorkflowCreateRequest;
 import com.cqs.qrmfg.dto.WorkflowSummaryDto;
 import com.cqs.qrmfg.exception.WorkflowException;
@@ -7,6 +8,7 @@ import com.cqs.qrmfg.exception.WorkflowNotFoundException;
 import com.cqs.qrmfg.model.MaterialWorkflow;
 import com.cqs.qrmfg.model.User;
 import com.cqs.qrmfg.model.WorkflowState;
+import com.cqs.qrmfg.service.DocumentService;
 import com.cqs.qrmfg.service.WorkflowService;
 import com.cqs.qrmfg.util.WorkflowMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +34,9 @@ public class WorkflowController {
     @Autowired
     private WorkflowMapper workflowMapper;
 
+    @Autowired
+    private DocumentService documentService;
+
     // Basic CRUD operations
     @GetMapping
     @PreAuthorize("hasRole('USER')")
@@ -49,10 +54,10 @@ public class WorkflowController {
                       .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    @GetMapping("/material/{materialId}")
+    @GetMapping("/material/{materialCode}")
     @PreAuthorize("hasRole('USER')")
-    public ResponseEntity<MaterialWorkflow> getWorkflowByMaterialId(@PathVariable String materialId) {
-        Optional<MaterialWorkflow> workflow = workflowService.findByMaterialId(materialId);
+    public ResponseEntity<MaterialWorkflow> getWorkflowByMaterialCode(@PathVariable String materialCode) {
+        Optional<MaterialWorkflow> workflow = workflowService.findByMaterialCode(materialCode);
         return workflow.map(ResponseEntity::ok)
                       .orElseGet(() -> ResponseEntity.notFound().build());
     }
@@ -66,13 +71,29 @@ public class WorkflowController {
         
         String initiatedBy = getCurrentUsername(authentication);
         
-        MaterialWorkflow workflow = workflowService.initiateWorkflow(
-            request.getMaterialId(),
-            request.getMaterialName(),
-            request.getMaterialDescription(),
-            request.getAssignedPlant(),
-            initiatedBy
-        );
+        MaterialWorkflow workflow;
+        
+        // Support both legacy and enhanced workflow creation
+        if (request.getProjectCode() != null && request.getMaterialCode() != null && 
+            request.getPlantCode() != null && request.getBlockId() != null) {
+            // Enhanced workflow creation with project/material/plant/block structure
+            workflow = workflowService.initiateEnhancedWorkflow(
+                request.getProjectCode(),
+                request.getMaterialCode(),
+                request.getPlantCode(),
+                request.getBlockId(),
+                initiatedBy
+            );
+        } else {
+            // Legacy workflow creation for backward compatibility
+            workflow = workflowService.initiateWorkflow(
+                request.getMaterialCode(),
+                request.getMaterialName(),
+                request.getMaterialDescription(),
+                request.getAssignedPlant(),
+                initiatedBy
+            );
+        }
         
         if (request.getSafetyDocumentsPath() != null) {
             workflow.setSafetyDocumentsPath(request.getSafetyDocumentsPath());
@@ -97,14 +118,14 @@ public class WorkflowController {
         return ResponseEntity.ok(workflow);
     }
 
-    @PutMapping("/material/{materialId}/extend")
+    @PutMapping("/material/{materialCode}/extend")
     @PreAuthorize("hasRole('JVC_USER') or hasRole('ADMIN')")
-    public ResponseEntity<MaterialWorkflow> extendToPlantByMaterialId(
-            @PathVariable String materialId,
+    public ResponseEntity<MaterialWorkflow> extendToPlantByMaterialCode(
+            @PathVariable String materialCode,
             Authentication authentication) {
         
         String updatedBy = getCurrentUsername(authentication);
-        MaterialWorkflow workflow = workflowService.extendToPlant(materialId, updatedBy);
+        MaterialWorkflow workflow = workflowService.extendToPlant(materialCode, updatedBy);
         return ResponseEntity.ok(workflow);
     }
 
@@ -119,14 +140,14 @@ public class WorkflowController {
         return ResponseEntity.ok(workflow);
     }
 
-    @PutMapping("/material/{materialId}/complete")
+    @PutMapping("/material/{materialCode}/complete")
     @PreAuthorize("hasRole('PLANT_USER') or hasRole('ADMIN')")
-    public ResponseEntity<MaterialWorkflow> completeWorkflowByMaterialId(
-            @PathVariable String materialId,
+    public ResponseEntity<MaterialWorkflow> completeWorkflowByMaterialCode(
+            @PathVariable String materialCode,
             Authentication authentication) {
         
         String updatedBy = getCurrentUsername(authentication);
-        MaterialWorkflow workflow = workflowService.completeWorkflow(materialId, updatedBy);
+        MaterialWorkflow workflow = workflowService.completeWorkflow(materialCode, updatedBy);
         return ResponseEntity.ok(workflow);
     }
 
@@ -169,7 +190,7 @@ public class WorkflowController {
     @GetMapping("/plant/{plantName}")
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<List<WorkflowSummaryDto>> getWorkflowsByPlant(@PathVariable String plantName) {
-        List<MaterialWorkflow> workflows = workflowService.findByAssignedPlant(plantName);
+        List<MaterialWorkflow> workflows = workflowService.findByPlantCode(plantName);
         List<WorkflowSummaryDto> workflowDtos = workflowMapper.toSummaryDtoList(workflows);
         return ResponseEntity.ok(workflowDtos);
     }
@@ -267,6 +288,23 @@ public class WorkflowController {
     public ResponseEntity<Boolean> isReadyForCompletion(@PathVariable Long id) {
         boolean isReady = workflowService.isWorkflowReadyForCompletion(id);
         return ResponseEntity.ok(isReady);
+    }
+
+    // Document access endpoints
+    @GetMapping("/{id}/documents")
+    @PreAuthorize("hasRole('PLANT_USER') or hasRole('JVC_USER') or hasRole('ADMIN')")
+    public ResponseEntity<List<DocumentSummary>> getWorkflowDocuments(@PathVariable Long id) {
+        List<DocumentSummary> documents = documentService.getWorkflowDocuments(id);
+        return ResponseEntity.ok(documents);
+    }
+
+    @GetMapping("/documents/reusable")
+    @PreAuthorize("hasRole('JVC_USER') or hasRole('ADMIN')")
+    public ResponseEntity<List<DocumentSummary>> getReusableDocuments(
+            @RequestParam String projectCode, 
+            @RequestParam String materialCode) {
+        List<DocumentSummary> documents = documentService.getReusableDocuments(projectCode, materialCode);
+        return ResponseEntity.ok(documents);
     }
 
     // Utility method to get current username

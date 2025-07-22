@@ -8,7 +8,7 @@ import com.cqs.qrmfg.model.Query;
 import com.cqs.qrmfg.model.QueryStatus;
 import com.cqs.qrmfg.model.WorkflowState;
 import com.cqs.qrmfg.repository.DashboardRepository;
-import com.cqs.qrmfg.repository.MaterialWorkflowRepository;
+import com.cqs.qrmfg.repository.WorkflowRepository;
 import com.cqs.qrmfg.repository.QueryRepository;
 import com.cqs.qrmfg.service.AdminMonitoringService;
 import com.cqs.qrmfg.service.AuditLogService;
@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
 public class AdminMonitoringServiceImpl implements AdminMonitoringService {
 
     @Autowired
-    private MaterialWorkflowRepository materialWorkflowRepository;
+    private WorkflowRepository materialWorkflowRepository;
 
     @Autowired
     private QueryRepository queryRepository;
@@ -64,7 +64,7 @@ public class AdminMonitoringServiceImpl implements AdminMonitoringService {
         
         // Get workflows by plant
         Map<String, Long> workflowsByPlant = new HashMap<>();
-        List<Object[]> plantCounts = materialWorkflowRepository.countByAssignedPlantGrouped();
+        List<Object[]> plantCounts = materialWorkflowRepository.countByPlantCodeGrouped();
         for (Object[] row : plantCounts) {
             workflowsByPlant.put((String) row[0], (Long) row[1]);
         }
@@ -398,7 +398,7 @@ public class AdminMonitoringServiceImpl implements AdminMonitoringService {
                     .filter(q -> q.getStatus() == QueryStatus.OPEN)
                     .count();
             
-            csv.append(formatCsvField(workflow.getMaterialId()))
+            csv.append(formatCsvField(workflow.getMaterialCode()))
                .append(",").append(formatCsvField(workflow.getState().name()))
                .append(",").append(formatCsvField(workflow.getAssignedPlant()))
                .append(",").append(formatCsvField(workflow.getInitiatedBy()))

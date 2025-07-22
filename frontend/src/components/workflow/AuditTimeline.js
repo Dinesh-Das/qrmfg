@@ -195,7 +195,7 @@ const AuditTimeline = ({ workflowId, entityType = 'workflow' }) => {
     return (
       <Card>
         <div style={{ textAlign: 'center', padding: '20px' }}>
-          <Spin size="large" />
+          <Spin size="large" data-testid="loading-spinner" />
         </div>
       </Card>
     );

@@ -22,7 +22,6 @@ public class WebConfig {
 
             @Override
             public void addResourceHandlers(ResourceHandlerRegistry registry) {
-                // Map static resources to both root and /qrmfg paths
                 registry.addResourceHandler("/qrmfg/**")
                         .addResourceLocations("classpath:/static/")
                         .resourceChain(true);

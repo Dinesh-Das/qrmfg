@@ -1,98 +1,127 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Card, 
-  Form, 
-  Input, 
-  Select, 
-  Upload, 
   Button, 
-  Table, 
   Typography, 
   Row, 
   Col, 
   message, 
-  Modal, 
   Tag, 
   Space,
   Divider,
-  Tabs
+  Tabs,
+  Statistic,
+  Alert,
+  Table
 } from 'antd';
 import { 
-  UploadOutlined, 
   PlusOutlined, 
-  SendOutlined, 
-  FileTextOutlined,
   ClockCircleOutlined,
-  CheckCircleOutlined
+  CheckCircleOutlined,
+  MessageOutlined,
+  ExclamationCircleOutlined,
+  ReloadOutlined,
+  HistoryOutlined
 } from '@ant-design/icons';
 import { workflowAPI } from '../services/workflowAPI';
+import { documentAPI } from '../services/documentAPI';
+import QueryInbox from '../components/workflow/QueryInbox';
+import QueryHistoryTracker from '../components/workflow/QueryHistoryTracker';
+import MaterialExtensionForm from '../components/workflow/MaterialExtensionForm';
+import PendingExtensionsList from '../components/workflow/PendingExtensionsList';
 
 const { Title, Text } = Typography;
-const { Option } = Select;
 const { TabPane } = Tabs;
 
 const JVCView = () => {
-  const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
-  const [pendingWorkflows, setPendingWorkflows] = useState([]);
   const [completedWorkflows, setCompletedWorkflows] = useState([]);
-  const [fileList, setFileList] = useState([]);
-  const [extendModalVisible, setExtendModalVisible] = useState(false);
-  const [selectedWorkflow, setSelectedWorkflow] = useState(null);
-  const [activeTab, setActiveTab] = useState('initiate');
 
-  // Plant options - in a real app, this would come from an API
-  const plantOptions = [
-    { value: 'plant-a', label: 'Plant A - Manufacturing' },
-    { value: 'plant-b', label: 'Plant B - Assembly' },
-    { value: 'plant-c', label: 'Plant C - Packaging' },
-    { value: 'plant-d', label: 'Plant D - Quality Control' },
-  ];
+  const [activeTab, setActiveTab] = useState('initiate');
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [queryStats, setQueryStats] = useState({
+    totalQueries: 0,
+    openQueries: 0,
+    resolvedToday: 0,
+    overdueQueries: 0,
+    avgResolutionTime: 0,
+    highPriorityQueries: 0
+  });
 
   useEffect(() => {
-    loadWorkflows();
+    loadCompletedWorkflows();
+    loadQueryStats();
   }, []);
 
-  const loadWorkflows = async () => {
+  const loadCompletedWorkflows = async () => {
     try {
       setLoading(true);
-      // Load pending workflows (JVC_PENDING state)
-      const pending = await workflowAPI.getWorkflowsByState('JVC_PENDING');
-      setPendingWorkflows(pending || []);
-      
       // Load completed workflows
       const completed = await workflowAPI.getWorkflowsByState('COMPLETED');
       setCompletedWorkflows(completed || []);
     } catch (error) {
-      console.error('Error loading workflows:', error);
-      message.error('Failed to load workflows');
+      console.error('Error loading completed workflows:', error);
+      message.error('Failed to load completed workflows');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInitiateWorkflow = async (values) => {
+  const loadQueryStats = async () => {
+    try {
+      const [openCount, resolvedToday, overdueQueries, avgTime, highPriorityQueries] = await Promise.all([
+        fetch('/qrmfg/api/v1/queries/stats/count-open/JVC').then(r => r.json()),
+        fetch('/qrmfg/api/v1/queries/stats/resolved-today').then(r => r.json()),
+        fetch('/qrmfg/api/v1/queries/overdue').then(r => r.json()).then(data => 
+          data.filter(q => q.assignedTeam === 'JVC').length
+        ),
+        fetch('/qrmfg/api/v1/queries/stats/avg-resolution-time/JVC').then(r => r.json()),
+        fetch('/qrmfg/api/v1/queries/high-priority').then(r => r.json()).then(data =>
+          data.filter(q => q.assignedTeam === 'JVC').length
+        )
+      ]);
+
+      setQueryStats({
+        totalQueries: openCount + resolvedToday,
+        openQueries: openCount,
+        resolvedToday: resolvedToday,
+        overdueQueries: overdueQueries,
+        avgResolutionTime: avgTime,
+        highPriorityQueries: highPriorityQueries
+      });
+    } catch (error) {
+      console.error('Failed to load query stats:', error);
+    }
+  };
+
+  const handleInitiateWorkflow = async (formData) => {
     try {
       setLoading(true);
       
-      // Prepare workflow data
+      // Create the workflow first
       const workflowData = {
-        materialId: values.materialId,
-        assignedPlant: values.plantSelection,
-        initiatedBy: 'current-user', // In real app, get from auth context
-        documents: fileList.map(file => ({
-          name: file.name,
-          url: file.response?.url || file.url,
-          type: file.type
-        }))
+        projectCode: formData.projectCode,
+        materialCode: formData.materialCode,
+        plantCode: formData.plantCode,
+        blockId: formData.blockId,
+        initiatedBy: 'current-user' // In real app, get from auth context
       };
 
-      await workflowAPI.createWorkflow(workflowData);
+      const createdWorkflow = await workflowAPI.createWorkflow(workflowData);
+      
+      // Upload new documents if any
+      if (formData.uploadedFiles && formData.uploadedFiles.length > 0) {
+        const files = formData.uploadedFiles.map(file => file.originFileObj || file);
+        await documentAPI.uploadDocuments(files, formData.projectCode, formData.materialCode, createdWorkflow.id);
+      }
+      
+      // Reuse existing documents if any selected
+      if (formData.reusedDocuments && formData.reusedDocuments.length > 0) {
+        await documentAPI.reuseDocuments(formData.reusedDocuments, createdWorkflow.id);
+      }
       
       message.success('Material workflow initiated successfully');
-      form.resetFields();
-      setFileList([]);
-      loadWorkflows();
+      setRefreshTrigger(prev => prev + 1);
       setActiveTab('pending');
     } catch (error) {
       console.error('Error initiating workflow:', error);
@@ -103,127 +132,55 @@ const JVCView = () => {
   };
 
   const handleExtendToPlant = async (workflow) => {
-    setSelectedWorkflow(workflow);
-    setExtendModalVisible(true);
-  };
-
-  const confirmExtendToPlant = async () => {
     try {
       setLoading(true);
       
-      await workflowAPI.extendWorkflow(selectedWorkflow.id, {
-        assignedPlant: selectedWorkflow.assignedPlant,
+      await workflowAPI.extendWorkflow(workflow.id, {
+        plantCode: workflow.plantCode,
         comment: 'Extended to plant for questionnaire completion'
       });
       
-      message.success(`Workflow extended to ${selectedWorkflow.assignedPlant}`);
-      setExtendModalVisible(false);
-      setSelectedWorkflow(null);
-      loadWorkflows();
+      message.success(`Workflow extended to plant ${workflow.plantCode}`);
+      setRefreshTrigger(prev => prev + 1);
     } catch (error) {
       console.error('Error extending workflow:', error);
       message.error('Failed to extend workflow to plant');
+      throw error; // Re-throw to let PendingExtensionsList handle it
     } finally {
       setLoading(false);
     }
   };
 
-  const handleFileChange = ({ fileList: newFileList }) => {
-    setFileList(newFileList);
+  const refreshData = () => {
+    loadCompletedWorkflows();
+    loadQueryStats();
+    setRefreshTrigger(prev => prev + 1);
   };
 
-  const uploadProps = {
-    name: 'file',
-    action: '/api/upload/documents',
-    headers: {
-      authorization: `Bearer ${localStorage.getItem('authToken')}`,
-    },
-    fileList,
-    onChange: handleFileChange,
-    beforeUpload: (file) => {
-      const isValidType = file.type === 'application/pdf' || 
-                         file.type.startsWith('image/') ||
-                         file.type === 'application/msword' ||
-                         file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-      
-      if (!isValidType) {
-        message.error('You can only upload PDF, Word, or image files!');
-        return false;
-      }
-      
-      const isLt10M = file.size / 1024 / 1024 < 10;
-      if (!isLt10M) {
-        message.error('File must be smaller than 10MB!');
-        return false;
-      }
-      
-      return true;
-    },
-  };
 
-  const pendingColumns = [
-    {
-      title: 'Material ID',
-      dataIndex: 'materialId',
-      key: 'materialId',
-      render: (text) => <Text strong>{text}</Text>
-    },
-    {
-      title: 'Assigned Plant',
-      dataIndex: 'assignedPlant',
-      key: 'assignedPlant',
-      render: (plant) => {
-        const plantOption = plantOptions.find(p => p.value === plant);
-        return plantOption ? plantOption.label : plant;
-      }
-    },
-    {
-      title: 'Created',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
-      render: (date) => new Date(date).toLocaleDateString()
-    },
-    {
-      title: 'Status',
-      dataIndex: 'state',
-      key: 'state',
-      render: (state) => (
-        <Tag color="orange" icon={<ClockCircleOutlined />}>
-          {state === 'JVC_PENDING' ? 'Pending Action' : state}
-        </Tag>
-      )
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      render: (_, record) => (
-        <Button 
-          type="primary" 
-          icon={<SendOutlined />}
-          onClick={() => handleExtendToPlant(record)}
-          size="small"
-        >
-          Extend to Plant
-        </Button>
-      )
-    }
-  ];
 
   const completedColumns = [
     {
-      title: 'Material ID',
-      dataIndex: 'materialId',
-      key: 'materialId',
+      title: 'Project Code',
+      dataIndex: 'projectCode',
+      key: 'projectCode',
       render: (text) => <Text strong>{text}</Text>
     },
     {
-      title: 'Plant',
-      dataIndex: 'assignedPlant',
-      key: 'assignedPlant',
-      render: (plant) => {
-        const plantOption = plantOptions.find(p => p.value === plant);
-        return plantOption ? plantOption.label : plant;
-      }
+      title: 'Material Code',
+      dataIndex: 'materialCode',
+      key: 'materialCode',
+      render: (text) => <Text code>{text}</Text>
+    },
+    {
+      title: 'Plant Code',
+      dataIndex: 'plantCode',
+      key: 'plantCode'
+    },
+    {
+      title: 'Block ID',
+      dataIndex: 'blockId',
+      key: 'blockId'
     },
     {
       title: 'Completed',
@@ -252,98 +209,34 @@ const JVCView = () => {
       
       <Divider />
       
-      <Tabs activeKey={activeTab} onChange={setActiveTab}>
+      <Tabs 
+        activeKey={activeTab} 
+        onChange={setActiveTab}
+        tabBarExtraContent={
+          <Space>
+            <Button 
+              icon={<ReloadOutlined />} 
+              onClick={refreshData}
+              size="small"
+            >
+              Refresh
+            </Button>
+          </Space>
+        }
+      >
         <TabPane tab="Initiate Workflow" key="initiate" icon={<PlusOutlined />}>
           <Row gutter={24}>
-            <Col span={16}>
-              <Card title="Material Workflow Initiation" bordered={false}>
-                <Form
-                  form={form}
-                  layout="vertical"
-                  onFinish={handleInitiateWorkflow}
-                  requiredMark={false}
-                >
-                  <Form.Item
-                    label="Material ID"
-                    name="materialId"
-                    rules={[
-                      { required: true, message: 'Please enter Material ID' },
-                      { pattern: /^[A-Z0-9-]+$/, message: 'Material ID should contain only uppercase letters, numbers, and hyphens' }
-                    ]}
-                  >
-                    <Input 
-                      placeholder="Enter Material ID (e.g., MAT-001-2024)"
-                      size="large"
-                    />
-                  </Form.Item>
-
-                  <Form.Item
-                    label="Plant Selection"
-                    name="plantSelection"
-                    rules={[{ required: true, message: 'Please select a plant' }]}
-                  >
-                    <Select 
-                      placeholder="Select the plant for this material"
-                      size="large"
-                      showSearch
-                      optionFilterProp="children"
-                    >
-                      {plantOptions.map(plant => (
-                        <Option key={plant.value} value={plant.value}>
-                          {plant.label}
-                        </Option>
-                      ))}
-                    </Select>
-                  </Form.Item>
-
-                  <Form.Item
-                    label="Safety Documents"
-                    name="documents"
-                    extra="Upload relevant safety documents (PDF, Word, or images). Maximum 10MB per file."
-                  >
-                    <Upload {...uploadProps} multiple>
-                      <Button icon={<UploadOutlined />} size="large">
-                        Upload Documents
-                      </Button>
-                    </Upload>
-                  </Form.Item>
-
-                  <Form.Item>
-                    <Space>
-                      <Button 
-                        type="primary" 
-                        htmlType="submit" 
-                        loading={loading}
-                        size="large"
-                        icon={<FileTextOutlined />}
-                      >
-                        Initiate Workflow
-                      </Button>
-                      <Button 
-                        onClick={() => {
-                          form.resetFields();
-                          setFileList([]);
-                        }}
-                        size="large"
-                      >
-                        Reset
-                      </Button>
-                    </Space>
-                  </Form.Item>
-                </Form>
-              </Card>
+            <Col span={18}>
+              <MaterialExtensionForm 
+                onSubmit={handleInitiateWorkflow}
+                loading={loading}
+              />
             </Col>
             
-            <Col span={8}>
-              <Card title="Quick Stats" bordered={false}>
+            <Col span={6}>
+              <Card title="Quick Stats">
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ marginBottom: 16 }}>
-                    <Text type="secondary">Pending Extensions</Text>
-                    <div style={{ fontSize: 24, fontWeight: 'bold', color: '#fa8c16' }}>
-                      {pendingWorkflows.length}
-                    </div>
-                  </div>
-                  <div>
                     <Text type="secondary">Completed This Month</Text>
                     <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
                       {completedWorkflows.length}
@@ -355,23 +248,15 @@ const JVCView = () => {
           </Row>
         </TabPane>
 
-        <TabPane tab={`Pending Extensions (${pendingWorkflows.length})`} key="pending" icon={<ClockCircleOutlined />}>
-          <Card title="Pending Extensions" bordered={false}>
-            <Table
-              dataSource={pendingWorkflows}
-              columns={pendingColumns}
-              rowKey="id"
-              loading={loading}
-              pagination={{ pageSize: 10 }}
-              locale={{
-                emptyText: 'No pending extensions'
-              }}
-            />
-          </Card>
+        <TabPane tab="Pending Extensions" key="pending" icon={<ClockCircleOutlined />}>
+          <PendingExtensionsList 
+            onExtendToPlant={handleExtendToPlant}
+            refreshTrigger={refreshTrigger}
+          />
         </TabPane>
 
         <TabPane tab={`Completed (${completedWorkflows.length})`} key="completed" icon={<CheckCircleOutlined />}>
-          <Card title="Completed Workflows" bordered={false}>
+          <Card title="Completed Workflows">
             <Table
               dataSource={completedWorkflows}
               columns={completedColumns}
@@ -384,39 +269,121 @@ const JVCView = () => {
             />
           </Card>
         </TabPane>
+
+        {/* Enhanced Query Management Tabs */}
+        <TabPane 
+          tab={
+            <Space>
+              <MessageOutlined />
+              <span>Query Inbox</span>
+              {queryStats.openQueries > 0 && (
+                <span style={{ 
+                  background: '#ff4d4f', 
+                  color: 'white', 
+                  borderRadius: '10px', 
+                  padding: '2px 6px', 
+                  fontSize: '12px' 
+                }}>
+                  {queryStats.openQueries}
+                </span>
+              )}
+            </Space>
+          } 
+          key="queries"
+        >
+          {/* Query Stats */}
+          <Row gutter={16} style={{ marginBottom: 16 }}>
+            <Col span={6}>
+              <Card>
+                <Statistic
+                  title="Open Queries"
+                  value={queryStats.openQueries}
+                  prefix={<MessageOutlined />}
+                  valueStyle={{ color: '#cf1322' }}
+                />
+              </Card>
+            </Col>
+            <Col span={6}>
+              <Card>
+                <Statistic
+                  title="Resolved Today"
+                  value={queryStats.resolvedToday}
+                  prefix={<CheckCircleOutlined />}
+                  valueStyle={{ color: '#3f8600' }}
+                />
+              </Card>
+            </Col>
+            <Col span={6}>
+              <Card>
+                <Statistic
+                  title="Overdue"
+                  value={queryStats.overdueQueries}
+                  prefix={<ExclamationCircleOutlined />}
+                  valueStyle={{ color: queryStats.overdueQueries > 0 ? '#cf1322' : '#3f8600' }}
+                />
+              </Card>
+            </Col>
+            <Col span={6}>
+              <Card>
+                <Statistic
+                  title="Avg Resolution"
+                  value={queryStats.avgResolutionTime}
+                  precision={1}
+                  suffix="hrs"
+                  prefix={<ClockCircleOutlined />}
+                />
+              </Card>
+            </Col>
+          </Row>
+
+          {/* Alerts for urgent items */}
+          {queryStats.overdueQueries > 0 && (
+            <Alert
+              message={`${queryStats.overdueQueries} queries are overdue (>3 days)`}
+              description="These queries require immediate attention to maintain SLA compliance."
+              type="error"
+              showIcon
+              style={{ marginBottom: 16 }}
+              action={
+                <Button size="small" danger>
+                  View Overdue
+                </Button>
+              }
+            />
+          )}
+
+          {queryStats.highPriorityQueries > 0 && (
+            <Alert
+              message={`${queryStats.highPriorityQueries} high priority queries pending`}
+              description="These queries have been marked as high priority and need urgent resolution."
+              type="warning"
+              showIcon
+              style={{ marginBottom: 16 }}
+              action={
+                <Button size="small" type="primary">
+                  View High Priority
+                </Button>
+              }
+            />
+          )}
+
+          <QueryInbox team="JVC" userRole="JVC_USER" />
+        </TabPane>
+
+        <TabPane 
+          tab={
+            <Space>
+              <HistoryOutlined />
+              <span>Query History</span>
+            </Space>
+          } 
+          key="history"
+        >
+          <QueryHistoryTracker />
+        </TabPane>
       </Tabs>
 
-      {/* Extend to Plant Confirmation Modal */}
-      <Modal
-        title="Extend Workflow to Plant"
-        open={extendModalVisible}
-        onOk={confirmExtendToPlant}
-        onCancel={() => {
-          setExtendModalVisible(false);
-          setSelectedWorkflow(null);
-        }}
-        confirmLoading={loading}
-        okText="Extend to Plant"
-        cancelText="Cancel"
-      >
-        {selectedWorkflow && (
-          <div>
-            <p>
-              <strong>Material ID:</strong> {selectedWorkflow.materialId}
-            </p>
-            <p>
-              <strong>Assigned Plant:</strong> {
-                plantOptions.find(p => p.value === selectedWorkflow.assignedPlant)?.label || 
-                selectedWorkflow.assignedPlant
-              }
-            </p>
-            <p>
-              Are you sure you want to extend this workflow to the plant team? 
-              They will be notified and can begin the questionnaire process.
-            </p>
-          </div>
-        )}
-      </Modal>
+
     </div>
   );
 };

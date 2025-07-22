@@ -21,17 +21,17 @@ import {
 const { Panel } = Collapse;
 const { Text, Title } = Typography;
 
-const MaterialContextDisplay = ({ materialId, workflowId, compact = false }) => {
+const MaterialContextDisplay = ({ materialCode, workflowId, compact = false }) => {
   const [loading, setLoading] = useState(false);
   const [materialData, setMaterialData] = useState(null);
   const [workflowData, setWorkflowData] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (materialId || workflowId) {
+    if (materialCode || workflowId) {
       loadMaterialContext();
     }
-  }, [materialId, workflowId]);
+  }, [materialCode, workflowId]);
 
   const loadMaterialContext = async () => {
     try {
@@ -48,12 +48,12 @@ const MaterialContextDisplay = ({ materialId, workflowId, compact = false }) => 
         );
       }
 
-      if (materialId) {
+      if (materialCode) {
         // In a real implementation, this would fetch material details from a materials API
         promises.push(
           Promise.resolve({
-            id: materialId,
-            name: `Material ${materialId}`,
+            id: materialCode,
+            name: `Material ${materialCode}`,
             description: 'Sample material description',
             category: 'Chemical',
             supplier: 'Sample Supplier',

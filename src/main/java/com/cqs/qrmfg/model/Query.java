@@ -124,6 +124,10 @@ public class Query {
         return "HIGH".equals(priorityLevel) || "URGENT".equals(priorityLevel);
     }
 
+    public boolean isResolved() {
+        return status == QueryStatus.RESOLVED;
+    }
+
     public String getDisplayTitle() {
         if (fieldName != null && stepNumber != null) {
             return String.format("Step %d - %s", stepNumber, fieldName);
@@ -191,6 +195,6 @@ public class Query {
     @Override
     public String toString() {
         return String.format("Query{id=%d, workflow=%s, assignedTeam=%s, status=%s}", 
-                           id, workflow != null ? workflow.getMaterialId() : null, assignedTeam, status);
+                           id, workflow != null ? workflow.getId() : null, assignedTeam, status);
     }
 }

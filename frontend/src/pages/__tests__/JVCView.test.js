@@ -26,7 +26,7 @@ describe('JVCView', () => {
         return Promise.resolve([
           {
             id: 1,
-            materialId: 'MAT-001-2024',
+            materialCode: 'MAT-001-2024',
             assignedPlant: 'plant-a',
             createdAt: '2024-01-15T10:00:00Z',
             state: 'JVC_PENDING'
@@ -37,7 +37,7 @@ describe('JVCView', () => {
         return Promise.resolve([
           {
             id: 2,
-            materialId: 'MAT-002-2024',
+            materialCode: 'MAT-002-2024',
             assignedPlant: 'plant-b',
             lastModified: '2024-01-10T15:30:00Z',
             state: 'COMPLETED'
@@ -47,7 +47,7 @@ describe('JVCView', () => {
       return Promise.resolve([]);
     });
     
-    workflowAPI.createWorkflow.mockResolvedValue({ id: 3, materialId: 'MAT-003-2024' });
+    workflowAPI.createWorkflow.mockResolvedValue({ id: 3, materialCode: 'MAT-003-2024' });
     workflowAPI.extendWorkflow.mockResolvedValue({ success: true });
   });
 
@@ -67,7 +67,7 @@ describe('JVCView', () => {
     render(<JVCView />);
     
     // Check form fields
-    expect(screen.getByLabelText('Material ID')).toBeInTheDocument();
+    expect(screen.getByLabelText('Material Code')).toBeInTheDocument();
     expect(screen.getByLabelText('Plant Selection')).toBeInTheDocument();
     expect(screen.getByLabelText('Safety Documents')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Initiate Workflow/ })).toBeInTheDocument();
@@ -76,27 +76,27 @@ describe('JVCView', () => {
   test('validates material ID format', async () => {
     render(<JVCView />);
     
-    const materialIdInput = screen.getByLabelText('Material ID');
+    const materialCodeInput = screen.getByLabelText('Material Code');
     const submitButton = screen.getByRole('button', { name: /Initiate Workflow/ });
     
     // Test invalid format
-    fireEvent.change(materialIdInput, { target: { value: 'invalid-format' } });
+    fireEvent.change(materialCodeInput, { target: { value: 'invalid-format' } });
     fireEvent.click(submitButton);
     
     await waitFor(() => {
-      expect(screen.getByText('Material ID should contain only uppercase letters, numbers, and hyphens')).toBeInTheDocument();
+      expect(screen.getByText('Material Code should contain only uppercase letters, numbers, and hyphens')).toBeInTheDocument();
     });
   });
 
   test('successfully initiates workflow with valid data', async () => {
     render(<JVCView />);
     
-    const materialIdInput = screen.getByLabelText('Material ID');
+    const materialCodeInput = screen.getByLabelText('Material Code');
     const plantSelect = screen.getByLabelText('Plant Selection');
     const submitButton = screen.getByRole('button', { name: /Initiate Workflow/ });
     
     // Fill form with valid data
-    fireEvent.change(materialIdInput, { target: { value: 'MAT-003-2024' } });
+    fireEvent.change(materialCodeInput, { target: { value: 'MAT-003-2024' } });
     fireEvent.mouseDown(plantSelect);
     fireEvent.click(screen.getByText('Plant A - Manufacturing'));
     
@@ -104,7 +104,7 @@ describe('JVCView', () => {
     
     await waitFor(() => {
       expect(workflowAPI.createWorkflow).toHaveBeenCalledWith({
-        materialId: 'MAT-003-2024',
+        materialCode: 'MAT-003-2024',
         assignedPlant: 'plant-a',
         initiatedBy: 'current-user',
         documents: []
@@ -199,18 +199,18 @@ describe('JVCView', () => {
   test('resets form when reset button is clicked', async () => {
     render(<JVCView />);
     
-    const materialIdInput = screen.getByLabelText('Material ID');
+    const materialCodeInput = screen.getByLabelText('Material Code');
     const resetButton = screen.getByRole('button', { name: /Reset/ });
     
     // Fill form
-    fireEvent.change(materialIdInput, { target: { value: 'MAT-TEST-2024' } });
-    expect(materialIdInput.value).toBe('MAT-TEST-2024');
+    fireEvent.change(materialCodeInput, { target: { value: 'MAT-TEST-2024' } });
+    expect(materialCodeInput.value).toBe('MAT-TEST-2024');
     
     // Reset form
     fireEvent.click(resetButton);
     
     await waitFor(() => {
-      expect(materialIdInput.value).toBe('');
+      expect(materialCodeInput.value).toBe('');
     });
   });
 });

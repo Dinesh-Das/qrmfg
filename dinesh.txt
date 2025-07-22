@@ -1,0 +1,252 @@
+QRMFG SYSTEM: FILE LINKAGE AND FEATURE EVALUATION
+==================================================
+
+1. USER MODEL
+-------------
+File: src/main/java/com/cqs/qrmfg/model/User.java
+Purpose: Represents a system user, including authentication details, status, roles, and session links. Implements Spring Security's UserDetails for integration with authentication.
+
+Related Files:
+- Controller: src/main/java/com/cqs/qrmfg/controller/UserController.java
+  * Handles REST API endpoints for user CRUD, notification preferences, and notification management.
+- Service Interface: src/main/java/com/cqs/qrmfg/service/UserService.java
+  * Declares user management operations (CRUD, role assignment, notification preferences).
+- Service Implementation: src/main/java/com/cqs/qrmfg/service/impl/UserServiceImpl.java
+  * Implements business logic for user management, role assignment, and notification preferences using JDBC.
+- Repository: src/main/java/com/cqs/qrmfg/repository/UserRepository.java
+  * JPA repository for User entity, provides DB access methods (find by username/email, existence checks).
+
+Feature Purpose:
+- User management (CRUD)
+- Role assignment and retrieval
+- Notification preferences
+- Integration with authentication and session management
+
+2. ROLE MODEL
+-------------
+File: src/main/java/com/cqs/qrmfg/model/Role.java
+Purpose: Represents a user role (e.g., ADMIN, USER), with metadata and type. Used for RBAC (role-based access control).
+
+Related Files:
+- Controller: src/main/java/com/cqs/qrmfg/controller/RoleController.java
+  * Handles REST API endpoints for role CRUD.
+- Service Interface: src/main/java/com/cqs/qrmfg/service/RoleService.java
+  * Declares role management operations (CRUD, find by name).
+- Service Implementation: src/main/java/com/cqs/qrmfg/service/impl/RoleServiceImpl.java
+  * Implements business logic for role management using RoleRepository.
+- Repository: src/main/java/com/cqs/qrmfg/repository/RoleRepository.java
+  * JPA repository for Role entity, provides DB access methods (find by name, existence checks).
+
+Feature Purpose:
+- Role management (CRUD)
+- Assignment of roles to users
+- Used for access control throughout the application
+
+3. AUDIT LOG MODEL
+------------------
+File: src/main/java/com/cqs/qrmfg/model/AuditLog.java
+Purpose: Represents an audit log entry for tracking user actions, entity changes, and security events. Stores metadata like user, action, entity, timestamps, severity, etc.
+
+Related Files:
+- Controller: src/main/java/com/cqs/qrmfg/controller/AuditLogController.java
+  * Handles REST API endpoints for querying and deleting audit logs.
+- Service Interface: src/main/java/com/cqs/qrmfg/service/AuditLogService.java
+  * Declares audit log operations (query, filter, log events, CRUD).
+- Service Implementation: src/main/java/com/cqs/qrmfg/service/impl/AuditLogServiceImpl.java
+  * Implements business logic for audit log management using JDBC.
+- Repository: src/main/java/com/cqs/qrmfg/repository/AuditLogRepository.java
+  * JPA repository for AuditLog entity.
+
+Feature Purpose:
+- Track user and system actions for security and compliance
+- Provide audit trails for entity changes
+- Support querying/filtering by user, action, entity, severity, and time
+
+4. USER SESSION MODEL
+---------------------
+File: src/main/java/com/cqs/qrmfg/model/UserSession.java
+Purpose: Represents a user session, including session ID, user, timestamps, status, device info, and activity tracking.
+
+Related Files:
+- Controller: src/main/java/com/cqs/qrmfg/controller/UserSessionController.java
+  * Handles REST API endpoints for session CRUD and queries by user.
+- Service Interface: src/main/java/com/cqs/qrmfg/service/UserSessionService.java
+  * Declares session management operations (CRUD, find by session/user).
+- Service Implementation: src/main/java/com/cqs/qrmfg/service/impl/UserSessionServiceImpl.java
+  * Implements business logic for session management using UserSessionRepository.
+- Repository: src/main/java/com/cqs/qrmfg/repository/UserSessionRepository.java
+  * JPA repository for UserSession entity, provides DB access methods (find by sessionId/user).
+
+Feature Purpose:
+- Track user login sessions
+- Support session management (create, update, terminate)
+- Enable session-based security and activity tracking
+
+LINKAGE SUMMARY
+---------------
+- Each model (User, Role, AuditLog, UserSession) is linked to a controller (REST API), service interface (business logic contract), service implementation (actual logic), and repository (DB access).
+- Controllers expose endpoints for CRUD and queries.
+- Services encapsulate business logic and interact with repositories.
+- Repositories provide database access for the entities.
+- The system supports RBAC, auditing, and session management for secure, compliant operations.
+
+(For further details, see the respective files in the codebase.) 
+
+
+ALL OTHER BACKEND FILES: LIST & BRIEF DESCRIPTION
+=================================================
+
+CONTROLLERS
+-----------
+- AdminMonitoringController.java: Exposes endpoints for monitoring admin-related activities and system health.
+- AuditLogController.java: Provides endpoints for querying and managing audit logs.
+- AuthController.java: Handles authentication (login, JWT issuance) and related endpoints.
+- DocumentController.java: Manages document upload, download, access logs, and document-related workflows.
+- NotificationController.java: Manages notification delivery, preferences, and notification-related APIs.
+- ProjectController.java: Handles project CRUD and project-related queries.
+- QueryController.java: Manages queries (issues/questions) raised in workflows, including assignment, resolution, and history.
+- ReportController.java: Provides endpoints for generating and retrieving various reports.
+- RoleController.java: Manages user roles (CRUD, assignment).
+- ScreenRoleMappingController.java: Manages mapping between UI screens/routes and roles for access control.
+- SpaForwardingController.java: Forwards SPA (Single Page Application) routes to the frontend.
+- SystemController.java: Exposes system-level endpoints (status, info, etc.).
+- UserController.java: Manages users, notification preferences, and user notifications.
+- UserSessionController.java: Handles user session management (CRUD, queries).
+- WorkflowAuditController.java: Manages workflow audit logs and related queries.
+- WorkflowController.java: Handles workflow CRUD, state transitions, and workflow-related operations.
+
+SERVICES (INTERFACES)
+---------------------
+- AdminMonitoringService.java: Contract for admin monitoring operations.
+- AuditLogService.java: Contract for audit log management and querying.
+- DocumentService.java: Contract for document management and access logging.
+- NotificationSchedulerService.java: Schedules and manages notification delivery.
+- NotificationService.java: Contract for notification management and delivery.
+- ProjectService.java: Contract for project management.
+- QueryService.java: Contract for query (issue/question) management.
+- RoleService.java: Contract for role management.
+- ScreenRoleMappingService.java: Contract for screen-role mapping management.
+- UserService.java: Contract for user management.
+- UserSessionService.java: Contract for user session management.
+- WorkflowAuditService.java: Contract for workflow audit log management.
+- WorkflowNotificationIntegrationService.java: Integrates workflow events with notification delivery.
+- WorkflowService.java: Contract for workflow management.
+
+SERVICE IMPLEMENTATIONS
+-----------------------
+- AdminMonitoringServiceImpl.java: Implements admin monitoring logic.
+- AuditLogServiceImpl.java: Implements audit log management and querying.
+- DocumentServiceImpl.java: Implements document management and access logging.
+- NotificationServiceImpl.java: Implements notification management and delivery.
+- ProjectServiceImpl.java: Implements project management logic.
+- QueryServiceImpl.java: Implements query (issue/question) management.
+- RoleServiceImpl.java: Implements role management logic.
+- ScreenRoleMappingServiceImpl.java: Implements screen-role mapping management.
+- UserDetailsServiceImpl.java: Integrates user details with Spring Security authentication.
+- UserServiceImpl.java: Implements user management logic.
+- UserSessionServiceImpl.java: Implements user session management.
+- WorkflowAuditServiceImpl.java: Implements workflow audit log management.
+- WorkflowServiceImpl.java: Implements workflow management logic.
+
+REPOSITORIES
+------------
+- AuditLogRepository.java: JPA repository for AuditLog entity.
+- DashboardRepository.java: JPA repository for dashboard data aggregation.
+- DocumentAccessLogRepository.java: JPA repository for document access logs.
+- FSLocationRepository.java: JPA repository for file system locations.
+- FSObjectReferenceRepository.java: JPA repository for file system object references.
+- MaterialWorkflowRepository.java: JPA repository for material workflow entities.
+- NotificationPreferenceRepository.java: JPA repository for notification preferences.
+- QRMFGQuestionnaireMasterRepository.java: JPA repository for questionnaire master data.
+- QueryRepository.java: JPA repository for queries (issues/questions).
+- QuestionnaireResponseRepository.java: JPA repository for questionnaire responses.
+- RoleRepository.java: JPA repository for roles.
+- ScreenRoleMappingRepository.java: JPA repository for screen-role mappings.
+- UserRepository.java: JPA repository for users.
+- UserSessionRepository.java: JPA repository for user sessions.
+- WorkflowDocumentRepository.java: JPA repository for workflow documents.
+
+MODELS
+------
+- AuditLog.java: Entity for audit log entries.
+- DocumentAccessLog.java: Entity for document access logs.
+- DocumentAccessType.java: Enum for document access types.
+- FSLocation.java: Entity for file system locations.
+- FSObjectReference.java: Entity for file system object references.
+- MaterialWorkflow.java: Entity for material workflow data.
+- NotificationChannel.java: Enum for notification channels (EMAIL, SLACK, etc.).
+- NotificationPreference.java: Entity for user notification preferences.
+- NotificationType.java: Enum for notification types.
+- PlantOption.java: Entity for plant options in workflows.
+- ProjectOption.java: Entity for project options in workflows.
+- QRMFGQuestionnaireMaster.java: Entity for questionnaire master data.
+- Query.java: Entity for queries (issues/questions) in workflows.
+- QueryStatus.java: Enum for query status values.
+- QueryTeam.java: Entity for query team assignments.
+- QuestionnaireResponse.java: Entity for questionnaire responses.
+- Role.java: Entity for user roles.
+- ScreenRoleMapping.java: Entity for mapping UI screens/routes to roles.
+- User.java: Entity for users.
+- UserSession.java: Entity for user sessions.
+- WorkflowDocument.java: Entity for workflow documents.
+- WorkflowState.java: Enum for workflow states.
+
+DTOS (DATA TRANSFER OBJECTS)
+----------------------------
+- AuditHistoryDto.java: DTO for audit history data.
+- BlockOption.java: DTO for block options in workflows.
+- DocumentAccessLogDto.java: DTO for document access log data.
+- DocumentReuseRequest.java: DTO for document reuse requests.
+- DocumentSummary.java: DTO for document summary data.
+- MaterialOption.java: DTO for material options in workflows.
+- NotificationRequest.java: DTO for notification requests.
+- NotificationResult.java: DTO for notification results.
+- PlantOption.java: DTO for plant options in workflows.
+- ProjectOption.java: DTO for project options in workflows.
+- QueryContextDto.java: DTO for query context data.
+- QueryCreateRequest.java: DTO for query creation requests.
+- QueryResolveRequest.java: DTO for query resolution requests.
+- QuerySlaReportDto.java: DTO for query SLA report data.
+- QuerySummaryDto.java: DTO for query summary data.
+- QuestionnaireStepDto.java: DTO for questionnaire step data.
+- QuestionnaireTemplateDto.java: DTO for questionnaire template data.
+- UserRoleAssignmentDto.java: DTO for user role assignment data.
+- WorkflowCreateRequest.java: DTO for workflow creation requests.
+- WorkflowMonitoringDto.java: DTO for workflow monitoring data.
+- WorkflowSummaryDto.java: DTO for workflow summary data.
+
+EXCEPTIONS
+----------
+- DocumentException.java: Base exception for document-related errors.
+- DocumentNotFoundException.java: Exception for missing documents.
+- ErrorResponse.java: Standard error response structure for API errors.
+- InvalidQueryStateException.java: Exception for invalid query state transitions.
+- InvalidWorkflowStateException.java: Exception for invalid workflow state transitions.
+- QueryAlreadyResolvedException.java: Exception for already resolved queries.
+- QueryException.java: Base exception for query-related errors.
+- QueryNotFoundException.java: Exception for missing queries.
+- UnauthorizedWorkflowActionException.java: Exception for unauthorized workflow actions.
+- WorkflowException.java: Base exception for workflow-related errors.
+- WorkflowExceptionHandler.java: Global exception handler for workflow-related errors.
+- WorkflowNotFoundException.java: Exception for missing workflows.
+
+CONFIGURATION
+-------------
+- AuditConfiguration.java: Configures audit logging.
+- EnversConfig.java: Configures Hibernate Envers for entity auditing.
+- JwtAuthenticationFilter.java: JWT authentication filter for securing endpoints.
+- JwtUtil.java: Utility for JWT token creation and validation.
+- NotificationConfig.java: Configures notification channels and settings.
+- NotificationWebSocketHandler.java: Handles WebSocket connections for notifications.
+- SecurityConfig.java: Configures Spring Security and JWT integration.
+- WebConfig.java: General web configuration (CORS, etc.).
+- WebSocketConfig.java: Configures WebSocket endpoints for real-time features.
+
+UTILITIES
+---------
+- QueryMapper.java: Utility for mapping query entities to DTOs and vice versa.
+- WorkflowMapper.java: Utility for mapping workflow entities to DTOs and vice versa.
+
+MAIN APPLICATION
+----------------
+- QrmfgApplication.java: Main Spring Boot application entry point. Ensures default admin user/role, sets up screen-role mappings, and starts the backend server. 

@@ -17,7 +17,7 @@ public class WorkflowMapper {
 
         return new WorkflowSummaryDto(
             workflow.getId(),
-            workflow.getMaterialId(),
+            workflow.getMaterialCode(),
             workflow.getMaterialName(),
             workflow.getState(),
             workflow.getAssignedPlant(),

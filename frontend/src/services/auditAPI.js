@@ -38,5 +38,13 @@ export const auditAPI = {
       headers: {
         'Accept': format === 'csv' ? 'text/csv' : 'application/json'
       }
-    })
+    }),
+  
+  // Read-only workflow view
+  getReadOnlyWorkflowView: (workflowId) => 
+    apiRequest(`/api/audit/workflow/${workflowId}/readonly`),
+  
+  // Version history for questionnaire responses
+  getQuestionnaireResponseVersions: (workflowId) => 
+    apiRequest(`/api/audit/workflow/${workflowId}/response-versions`)
 };

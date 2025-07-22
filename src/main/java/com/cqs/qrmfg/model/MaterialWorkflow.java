@@ -15,15 +15,21 @@ public class MaterialWorkflow {
     @SequenceGenerator(name = "material_workflow_seq", sequenceName = "MATERIAL_WORKFLOW_SEQ", allocationSize = 1)
     private Long id;
 
-    @Column(name = "material_id", unique = true, nullable = false, length = 100)
-    private String materialId;
+    @Column(name = "project_code", nullable = false, length = 50)
+    private String projectCode;
+
+    @Column(name = "material_code", nullable = false, length = 50)
+    private String materialCode;
+
+    @Column(name = "plant_code", nullable = false, length = 50)
+    private String plantCode;
+
+    @Column(name = "block_id", nullable = false, length = 50)
+    private String blockId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "workflow_state", nullable = false, length = 20)
     private WorkflowState state = WorkflowState.JVC_PENDING;
-
-    @Column(name = "assigned_plant", length = 100)
-    private String assignedPlant;
 
     @Column(name = "initiated_by", nullable = false, length = 100)
     private String initiatedBy;
@@ -64,20 +70,21 @@ public class MaterialWorkflow {
     @OneToMany(mappedBy = "workflow", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<QuestionnaireResponse> responses = new ArrayList<>();
 
+    @OneToMany(mappedBy = "workflow", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<WorkflowDocument> documents = new ArrayList<>();
+
     public MaterialWorkflow() {}
 
-    public MaterialWorkflow(String materialId, String initiatedBy) {
-        this.materialId = materialId;
+    public MaterialWorkflow(String projectCode, String materialCode, String plantCode, String blockId, String initiatedBy) {
+        this.projectCode = projectCode;
+        this.materialCode = materialCode;
+        this.plantCode = plantCode;
+        this.blockId = blockId;
         this.initiatedBy = initiatedBy;
         this.createdAt = LocalDateTime.now();
         this.lastModified = LocalDateTime.now();
         this.createdBy = initiatedBy;
         this.updatedBy = initiatedBy;
-    }
-
-    public MaterialWorkflow(String materialId, String initiatedBy, String assignedPlant) {
-        this(materialId, initiatedBy);
-        this.assignedPlant = assignedPlant;
     }
 
     @PrePersist
@@ -172,14 +179,20 @@ public class MaterialWorkflow {
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
-    public String getMaterialId() { return materialId; }
-    public void setMaterialId(String materialId) { this.materialId = materialId; }
+    public String getProjectCode() { return projectCode; }
+    public void setProjectCode(String projectCode) { this.projectCode = projectCode; }
+
+    public String getMaterialCode() { return materialCode; }
+    public void setMaterialCode(String materialCode) { this.materialCode = materialCode; }
+
+    public String getPlantCode() { return plantCode; }
+    public void setPlantCode(String plantCode) { this.plantCode = plantCode; }
+
+    public String getBlockId() { return blockId; }
+    public void setBlockId(String blockId) { this.blockId = blockId; }
 
     public WorkflowState getState() { return state; }
     public void setState(WorkflowState state) { this.state = state; }
-
-    public String getAssignedPlant() { return assignedPlant; }
-    public void setAssignedPlant(String assignedPlant) { this.assignedPlant = assignedPlant; }
 
     public String getInitiatedBy() { return initiatedBy; }
     public void setInitiatedBy(String initiatedBy) { this.initiatedBy = initiatedBy; }
@@ -220,9 +233,16 @@ public class MaterialWorkflow {
     public List<QuestionnaireResponse> getResponses() { return responses; }
     public void setResponses(List<QuestionnaireResponse> responses) { this.responses = responses; }
 
+    public List<WorkflowDocument> getDocuments() { return documents; }
+    public void setDocuments(List<WorkflowDocument> documents) { this.documents = documents; }
+
+    public String getAssignedPlant() {
+        return plantCode; // Map to new field
+    }
+
     @Override
     public String toString() {
-        return String.format("MaterialWorkflow{id=%d, materialId='%s', state=%s, assignedPlant='%s'}", 
-                           id, materialId, state, assignedPlant);
+        return String.format("MaterialWorkflow{id=%d, projectCode='%s', materialCode='%s', plantCode='%s', blockId='%s', state=%s}", 
+                           id, projectCode, materialCode, plantCode, blockId, state);
     }
 }

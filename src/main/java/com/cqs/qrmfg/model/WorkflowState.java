@@ -36,7 +36,7 @@ public enum WorkflowState {
             case JVC_PENDING:
                 return newState == PLANT_PENDING;
             case PLANT_PENDING:
-                return newState == CQS_PENDING || newState == TECH_PENDING || newState == COMPLETED;
+                return newState == CQS_PENDING || newState == TECH_PENDING || newState == JVC_PENDING || newState == COMPLETED;
             case CQS_PENDING:
             case TECH_PENDING:
                 return newState == PLANT_PENDING;

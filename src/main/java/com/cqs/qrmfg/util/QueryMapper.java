@@ -17,7 +17,7 @@ public class QueryMapper {
 
         return new QuerySummaryDto(
             query.getId(),
-            query.getWorkflow() != null ? query.getWorkflow().getMaterialId() : null,
+            query.getWorkflow() != null ? query.getWorkflow().getMaterialCode() : null,
             query.getWorkflow() != null ? query.getWorkflow().getMaterialName() : null,
             query.getWorkflow() != null ? query.getWorkflow().getAssignedPlant() : null,
             query.getStepNumber(),

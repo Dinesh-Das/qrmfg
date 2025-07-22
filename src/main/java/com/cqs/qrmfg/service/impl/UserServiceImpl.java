@@ -300,4 +300,14 @@ public class UserServiceImpl implements UserService {
             throw new RuntimeException("User not found with id: " + id);
         }
     }
+
+    @Override
+    public Map<String, Object> getNotificationPreferences(String username) {
+        return new HashMap<>(); // TODO: implement actual logic
+    }
+
+    @Override
+    public void updateNotificationPreferences(String username, Map<String, Object> preferences) {
+        // TODO: implement actual logic
+    }
 }

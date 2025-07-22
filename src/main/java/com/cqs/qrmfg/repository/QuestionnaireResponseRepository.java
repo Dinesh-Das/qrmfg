@@ -26,14 +26,14 @@ public interface QuestionnaireResponseRepository extends JpaRepository<Questionn
     Optional<QuestionnaireResponse> findByWorkflowIdAndStepNumberAndFieldName(Long workflowId, Integer stepNumber, String fieldName);
     
     // Material-based queries
-    @Query("SELECT qr FROM QuestionnaireResponse qr WHERE qr.workflow.materialId = :materialId")
-    List<QuestionnaireResponse> findByMaterialId(@Param("materialId") String materialId);
+    @Query("SELECT qr FROM QuestionnaireResponse qr WHERE qr.workflow.materialCode = :materialCode")
+    List<QuestionnaireResponse> findByMaterialCode(@Param("materialCode") String materialCode);
     
-    @Query("SELECT qr FROM QuestionnaireResponse qr WHERE qr.workflow.materialId = :materialId AND qr.stepNumber = :stepNumber")
-    List<QuestionnaireResponse> findByMaterialIdAndStepNumber(@Param("materialId") String materialId, @Param("stepNumber") Integer stepNumber);
+    @Query("SELECT qr FROM QuestionnaireResponse qr WHERE qr.workflow.materialCode = :materialCode AND qr.stepNumber = :stepNumber")
+    List<QuestionnaireResponse> findByMaterialCodeAndStepNumber(@Param("materialCode") String materialCode, @Param("stepNumber") Integer stepNumber);
     
-    @Query("SELECT qr FROM QuestionnaireResponse qr WHERE qr.workflow.materialId = :materialId AND qr.fieldName = :fieldName")
-    List<QuestionnaireResponse> findByMaterialIdAndFieldName(@Param("materialId") String materialId, @Param("fieldName") String fieldName);
+    @Query("SELECT qr FROM QuestionnaireResponse qr WHERE qr.workflow.materialCode = :materialCode AND qr.fieldName = :fieldName")
+    List<QuestionnaireResponse> findByMaterialCodeAndFieldName(@Param("materialCode") String materialCode, @Param("fieldName") String fieldName);
     
     // Draft and validation queries
     List<QuestionnaireResponse> findByIsDraft(Boolean isDraft);
@@ -114,8 +114,8 @@ public interface QuestionnaireResponseRepository extends JpaRepository<Questionn
     @Query("SELECT qr FROM QuestionnaireResponse qr WHERE qr.workflow.id IN :workflowIds")
     List<QuestionnaireResponse> findByWorkflowIds(@Param("workflowIds") List<Long> workflowIds);
     
-    @Query("SELECT qr FROM QuestionnaireResponse qr WHERE qr.workflow.materialId IN :materialIds")
-    List<QuestionnaireResponse> findByMaterialIds(@Param("materialIds") List<String> materialIds);
+    @Query("SELECT qr FROM QuestionnaireResponse qr WHERE qr.workflow.materialCode IN :materialCodes")
+    List<QuestionnaireResponse> findByMaterialCodes(@Param("materialCodes") List<String> materialCodes);
     
     // Validation and quality checks
     @Query("SELECT qr FROM QuestionnaireResponse qr WHERE qr.workflow.id = :workflowId AND " +
@@ -137,4 +137,77 @@ public interface QuestionnaireResponseRepository extends JpaRepository<Questionn
     
     @Query("SELECT qr FROM QuestionnaireResponse qr WHERE qr.isDraft = true AND qr.lastModified < :cutoffDate")
     List<QuestionnaireResponse> findOldDraftResponses(@Param("cutoffDate") LocalDateTime cutoffDate);
+
+    // Enhanced form data persistence capabilities
+    @Query("SELECT qr FROM QuestionnaireResponse qr JOIN qr.workflow w WHERE " +
+           "(:projectCode IS NULL OR w.projectCode = :projectCode) AND " +
+           "(:materialCode IS NULL OR w.materialCode = :materialCode) AND " +
+           "(:plantCode IS NULL OR w.plantCode = :plantCode) AND " +
+           "(:stepNumber IS NULL OR qr.stepNumber = :stepNumber) AND " +
+           "(:fieldType IS NULL OR qr.fieldType = :fieldType) AND " +
+           "(:validationStatus IS NULL OR qr.validationStatus = :validationStatus) " +
+           "ORDER BY qr.lastModified DESC")
+    List<QuestionnaireResponse> findResponsesWithFilters(
+        @Param("projectCode") String projectCode,
+        @Param("materialCode") String materialCode,
+        @Param("plantCode") String plantCode,
+        @Param("stepNumber") Integer stepNumber,
+        @Param("fieldType") String fieldType,
+        @Param("validationStatus") String validationStatus);
+
+    // Auto-save and recovery support
+    @Query("SELECT qr FROM QuestionnaireResponse qr WHERE qr.workflow.id = :workflowId AND qr.isDraft = true AND qr.lastModified >= :cutoffTime ORDER BY qr.lastModified DESC")
+    List<QuestionnaireResponse> findRecentDraftsByWorkflow(@Param("workflowId") Long workflowId, @Param("cutoffTime") LocalDateTime cutoffTime);
+
+    @Query("SELECT qr FROM QuestionnaireResponse qr WHERE qr.workflow.id = :workflowId AND qr.stepNumber = :stepNumber AND qr.isDraft = true ORDER BY qr.lastModified DESC")
+    List<QuestionnaireResponse> findDraftResponsesByWorkflowAndStep(@Param("workflowId") Long workflowId, @Param("stepNumber") Integer stepNumber);
+
+    // Form completion analytics
+    @Query("SELECT qr.stepNumber, COUNT(qr) as totalResponses, " +
+           "SUM(CASE WHEN qr.fieldValue IS NOT NULL AND qr.fieldValue != '' THEN 1 ELSE 0 END) as completedResponses " +
+           "FROM QuestionnaireResponse qr WHERE qr.workflow.id = :workflowId " +
+           "GROUP BY qr.stepNumber ORDER BY qr.stepNumber")
+    List<Object[]> getStepCompletionStats(@Param("workflowId") Long workflowId);
+
+    @Query("SELECT qr.fieldType, COUNT(qr) as totalFields, " +
+           "SUM(CASE WHEN qr.fieldValue IS NOT NULL AND qr.fieldValue != '' THEN 1 ELSE 0 END) as completedFields " +
+           "FROM QuestionnaireResponse qr WHERE qr.workflow.id = :workflowId " +
+           "GROUP BY qr.fieldType ORDER BY qr.fieldType")
+    List<Object[]> getFieldTypeCompletionStats(@Param("workflowId") Long workflowId);
+
+    // Validation and quality metrics
+    @Query("SELECT qr.validationStatus, COUNT(qr) FROM QuestionnaireResponse qr WHERE qr.workflow.id = :workflowId GROUP BY qr.validationStatus")
+    List<Object[]> getValidationStatusStats(@Param("workflowId") Long workflowId);
+
+    @Query("SELECT qr.stepNumber, qr.validationStatus, COUNT(qr) FROM QuestionnaireResponse qr WHERE qr.workflow.id = :workflowId GROUP BY qr.stepNumber, qr.validationStatus ORDER BY qr.stepNumber")
+    List<Object[]> getValidationStatusByStep(@Param("workflowId") Long workflowId);
+
+    // User activity tracking
+    @Query("SELECT qr.modifiedBy, COUNT(qr) as responseCount, MAX(qr.lastModified) as lastActivity " +
+           "FROM QuestionnaireResponse qr WHERE qr.workflow.id = :workflowId " +
+           "GROUP BY qr.modifiedBy ORDER BY lastActivity DESC")
+    List<Object[]> getUserActivityStats(@Param("workflowId") Long workflowId);
+
+    // Bulk operations support
+    @Query("SELECT qr FROM QuestionnaireResponse qr WHERE qr.id IN :responseIds")
+    List<QuestionnaireResponse> findByIds(@Param("responseIds") List<Long> responseIds);
+
+    @Query("SELECT qr FROM QuestionnaireResponse qr WHERE qr.workflow.id IN :workflowIds AND qr.isDraft = false")
+    List<QuestionnaireResponse> findFinalizedResponsesByWorkflowIds(@Param("workflowIds") List<Long> workflowIds);
+
+    // Template and reuse support
+    @Query("SELECT qr FROM QuestionnaireResponse qr JOIN qr.workflow w WHERE " +
+           "w.projectCode = :projectCode AND w.materialCode = :materialCode AND " +
+           "qr.isDraft = false AND qr.validationStatus = 'VALID' " +
+           "ORDER BY qr.lastModified DESC")
+    List<QuestionnaireResponse> findTemplateResponsesForProjectMaterial(
+        @Param("projectCode") String projectCode, 
+        @Param("materialCode") String materialCode);
+
+    // Performance optimization queries
+    @Query("SELECT qr.stepNumber, qr.fieldName, qr.fieldValue FROM QuestionnaireResponse qr WHERE qr.workflow.id = :workflowId AND qr.isDraft = false ORDER BY qr.stepNumber, qr.displayOrder")
+    List<Object[]> findFinalizedResponseDataByWorkflow(@Param("workflowId") Long workflowId);
+
+    @Query("SELECT COUNT(qr) FROM QuestionnaireResponse qr WHERE qr.workflow.id = :workflowId AND qr.isDraft = false AND qr.isRequired = true AND (qr.fieldValue IS NULL OR qr.fieldValue = '')")
+    Long countMissingRequiredFinalizedResponses(@Param("workflowId") Long workflowId);
 }

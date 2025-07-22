@@ -109,9 +109,9 @@ const PlantView = () => {
 
   const columns = [
     {
-      title: 'Material ID',
-      dataIndex: 'materialId',
-      key: 'materialId',
+      title: 'Material Code',
+      dataIndex: 'materialCode',
+      key: 'materialCode',
       width: 120,
     },
     {
@@ -282,7 +282,7 @@ const PlantView = () => {
 
       {/* Questionnaire Modal */}
       <Modal
-        title={`Material Questionnaire - ${selectedWorkflow?.materialId}`}
+        title={`Material Questionnaire - ${selectedWorkflow?.materialCode}`}
         open={questionnaireVisible}
         onCancel={() => {
           setQuestionnaireVisible(false);

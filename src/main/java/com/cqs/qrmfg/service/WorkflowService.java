@@ -12,31 +12,35 @@ public interface WorkflowService {
     MaterialWorkflow update(MaterialWorkflow workflow);
     void delete(Long id);
     Optional<MaterialWorkflow> findById(Long id);
-    Optional<MaterialWorkflow> findByMaterialId(String materialId);
+    Optional<MaterialWorkflow> findByMaterialCode(String materialCode);
     List<MaterialWorkflow> findAll();
     
     // Workflow creation
-    MaterialWorkflow initiateWorkflow(String materialId, String materialName, String materialDescription, 
+    MaterialWorkflow initiateWorkflow(String materialCode, String materialName, String materialDescription, 
                                     String assignedPlant, String initiatedBy);
-    MaterialWorkflow initiateWorkflow(String materialId, String assignedPlant, String initiatedBy);
+    MaterialWorkflow initiateWorkflow(String materialCode, String assignedPlant, String initiatedBy);
+    
+    // Enhanced workflow creation with project/material/plant/block structure
+    MaterialWorkflow initiateEnhancedWorkflow(String projectCode, String materialCode, String plantCode, 
+                                            String blockId, String initiatedBy);
     
     // State transition operations
     MaterialWorkflow transitionToState(Long workflowId, WorkflowState newState, String updatedBy);
-    MaterialWorkflow transitionToState(String materialId, WorkflowState newState, String updatedBy);
+    MaterialWorkflow transitionToState(String materialCode, WorkflowState newState, String updatedBy);
     boolean canTransitionTo(Long workflowId, WorkflowState newState);
-    boolean canTransitionTo(String materialId, WorkflowState newState);
+    boolean canTransitionTo(String materialCode, WorkflowState newState);
     
     // Specific workflow actions
     MaterialWorkflow extendToPlant(Long workflowId, String updatedBy);
-    MaterialWorkflow extendToPlant(String materialId, String updatedBy);
+    MaterialWorkflow extendToPlant(String materialCode, String updatedBy);
     MaterialWorkflow completeWorkflow(Long workflowId, String updatedBy);
-    MaterialWorkflow completeWorkflow(String materialId, String updatedBy);
+    MaterialWorkflow completeWorkflow(String materialCode, String updatedBy);
     MaterialWorkflow moveToQueryState(Long workflowId, WorkflowState queryState, String updatedBy);
     MaterialWorkflow returnFromQueryState(Long workflowId, String updatedBy);
     
     // Query-based operations
     List<MaterialWorkflow> findByState(WorkflowState state);
-    List<MaterialWorkflow> findByAssignedPlant(String plantName);
+    List<MaterialWorkflow> findByPlantCode(String plantCode);
     List<MaterialWorkflow> findByInitiatedBy(String username);
     List<MaterialWorkflow> findPendingWorkflows();
     List<MaterialWorkflow> findOverdueWorkflows();
@@ -53,5 +57,5 @@ public interface WorkflowService {
     void validateStateTransition(MaterialWorkflow workflow, WorkflowState newState);
     void validateWorkflowCompletion(MaterialWorkflow workflow);
     boolean isWorkflowReadyForCompletion(Long workflowId);
-    boolean isWorkflowReadyForCompletion(String materialId);
+    boolean isWorkflowReadyForCompletion(String materialCode);
 }

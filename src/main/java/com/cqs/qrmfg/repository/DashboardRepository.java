@@ -57,7 +57,7 @@ public class DashboardRepository {
      * @return List of overdue workflow summaries
      */
     public List<WorkflowSummaryDto> getOverdueWorkflows(int dayThreshold) {
-        String sql = "SELECT w.id, w.material_id, w.material_name, w.workflow_state, w.assigned_plant, w.initiated_by, " +
+        String sql = "SELECT w.id, w.material_code, w.material_name, w.workflow_state, w.assigned_plant, w.initiated_by, " +
                      "w.created_at, w.last_modified, w.extended_at, w.completed_at, " +
                      "CASE " +
                      "    WHEN w.workflow_state = 'JVC_PENDING' THEN TRUNC(SYSDATE - w.created_at) " +
@@ -86,7 +86,7 @@ public class DashboardRepository {
      * @return List of workflow summaries with open queries
      */
     public List<WorkflowSummaryDto> getWorkflowsWithOpenQueries() {
-        String sql = "SELECT w.id, w.material_id, w.material_name, w.workflow_state, w.assigned_plant, w.initiated_by, " +
+        String sql = "SELECT w.id, w.material_code, w.material_name, w.workflow_state, w.assigned_plant, w.initiated_by, " +
                      "w.created_at, w.last_modified, w.extended_at, w.completed_at, " +
                      "CASE " +
                      "    WHEN w.workflow_state = 'JVC_PENDING' THEN TRUNC(SYSDATE - w.created_at) " +
@@ -109,7 +109,7 @@ public class DashboardRepository {
      * @return List of workflow summaries with recent activity
      */
     public List<WorkflowSummaryDto> getRecentActivity(int days) {
-        String sql = "SELECT w.id, w.material_id, w.material_name, w.workflow_state, w.assigned_plant, w.initiated_by, " +
+        String sql = "SELECT w.id, w.material_code, w.material_name, w.workflow_state, w.assigned_plant, w.initiated_by, " +
                      "w.created_at, w.last_modified, w.extended_at, w.completed_at, " +
                      "CASE " +
                      "    WHEN w.workflow_state = 'JVC_PENDING' THEN TRUNC(SYSDATE - w.created_at) " +
@@ -132,7 +132,7 @@ public class DashboardRepository {
      * @return List of workflow summaries for the plant
      */
     public List<WorkflowSummaryDto> getWorkflowsByPlant(String plantName) {
-        String sql = "SELECT w.id, w.material_id, w.material_name, w.workflow_state, w.assigned_plant, w.initiated_by, " +
+        String sql = "SELECT w.id, w.material_code, w.material_name, w.workflow_state, w.assigned_plant, w.initiated_by, " +
                      "w.created_at, w.last_modified, w.extended_at, w.completed_at, " +
                      "CASE " +
                      "    WHEN w.workflow_state = 'JVC_PENDING' THEN TRUNC(SYSDATE - w.created_at) " +
@@ -223,7 +223,7 @@ public class DashboardRepository {
     private WorkflowSummaryDto mapWorkflowSummary(ResultSet rs) throws SQLException {
         WorkflowSummaryDto dto = new WorkflowSummaryDto();
         dto.setId(rs.getLong("id"));
-        dto.setMaterialId(rs.getString("material_id"));
+        dto.setMaterialCode(rs.getString("material_code"));
         dto.setMaterialName(rs.getString("material_name"));
         dto.setCurrentState(WorkflowState.valueOf(rs.getString("workflow_state")));
         dto.setAssignedPlant(rs.getString("assigned_plant"));

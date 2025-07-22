@@ -2,9 +2,9 @@
 
 ## Overview
 
-The MSDS Workflow Automation system extends the existing QRMFG portal to provide a comprehensive workflow management solution for Material Safety Data Sheet processing. The system leverages the existing Spring Boot + React architecture with Ant Design components, Oracle database, and JWT authentication to create a state-driven workflow engine with role-based access control.
+The MSDS Workflow Automation system extends the existing QRMFG portal to provide a comprehensive workflow management solution for Material Safety Data Sheet processing across 4 stakeholder teams (JVC, Plant, CQS, Technology). The system leverages the existing Spring Boot + React architecture with Ant Design components, Oracle database, and JWT authentication to create a state-driven workflow engine with role-based access control and document management capabilities.
 
-The design follows a layered architecture pattern with clear separation between presentation, business logic, and data access layers. The workflow engine manages state transitions through a finite state machine pattern, while the query system provides asynchronous communication between teams.
+The design follows a layered architecture pattern with clear separation between presentation, business logic, and data access layers. The workflow engine manages state transitions through a finite state machine pattern, while the query system provides asynchronous communication between teams. The document management system enables file storage, reuse, and secure access across different workflow instances.
 
 ## Architecture
 
@@ -17,35 +17,47 @@ graph TB
         B[Workflow Forms]
         C[Query Management UI]
         D[Audit Timeline]
+        E[Document Management UI]
     end
     
     subgraph "Backend (Spring Boot)"
-        E[REST Controllers]
-        F[Workflow Service]
-        G[Query Service]
-        H[Notification Service]
-        I[Security Layer]
+        F[REST Controllers]
+        G[Workflow Service]
+        H[Query Service]
+        I[Notification Service]
+        J[Document Service]
+        K[Security Layer]
     end
     
     subgraph "Data Layer"
-        J[Oracle Database]
-        K[JPA Repositories]
-        L[Audit Tables]
+        L[Oracle Database]
+        M[JPA Repositories]
+        N[Audit Tables]
     end
     
-    A --> E
-    B --> E
-    C --> E
-    D --> E
+    subgraph "File Storage"
+        O[Document Storage]
+        P[File System]
+    end
+    
+    A --> F
+    B --> F
+    C --> F
+    D --> F
     E --> F
-    E --> G
-    E --> H
-    F --> K
-    G --> K
-    H --> K
-    K --> J
-    L --> J
-    I --> E
+    F --> G
+    F --> H
+    F --> I
+    F --> J
+    G --> M
+    H --> M
+    I --> M
+    J --> M
+    J --> O
+    M --> L
+    N --> L
+    O --> P
+    K --> F
 ```
 
 ### Workflow State Machine
@@ -56,8 +68,10 @@ stateDiagram-v2
     JVC_PENDING --> PLANT_PENDING : JVC Extension
     PLANT_PENDING --> CQS_PENDING : Query to CQS
     PLANT_PENDING --> TECH_PENDING : Query to Tech
+    PLANT_PENDING --> JVC_PENDING : Query to JVC
     CQS_PENDING --> PLANT_PENDING : Query Resolved
     TECH_PENDING --> PLANT_PENDING : Query Resolved
+    JVC_PENDING --> PLANT_PENDING : Query Resolved
     PLANT_PENDING --> COMPLETED : All Steps Complete
     COMPLETED --> [*]
 ```
@@ -77,13 +91,14 @@ public class MaterialWorkflow {
     @GeneratedValue
     private Long id;
     
-    @Column(unique = true)
-    private String materialId;
+    private String projectCode;
+    private String materialCode;
+    private String plantCode;
+    private String blockId;
     
     @Enumerated(EnumType.STRING)
     private WorkflowState state;
     
-    private String assignedPlant;
     private String initiatedBy;
     private LocalDateTime createdAt;
     private LocalDateTime lastModified;
@@ -93,6 +108,9 @@ public class MaterialWorkflow {
     
     @OneToMany(mappedBy = "workflow", cascade = CascadeType.ALL)
     private List<QuestionnaireResponse> responses;
+    
+    @OneToMany(mappedBy = "workflow", cascade = CascadeType.ALL)
+    private List<WorkflowDocument> documents;
 }
 ```
 
@@ -113,7 +131,7 @@ public class Query {
     private String fieldName;
     
     @Enumerated(EnumType.STRING)
-    private QueryTeam assignedTeam; // CQS, TECH
+    private QueryTeam assignedTeam; // CQS, TECH, JVC
     
     @Enumerated(EnumType.STRING)
     private QueryStatus status; // OPEN, RESOLVED
@@ -123,6 +141,30 @@ public class Query {
     private String resolvedBy;
     private LocalDateTime createdAt;
     private LocalDateTime resolvedAt;
+}
+```
+
+**WorkflowDocument Entity**
+```java
+@Entity
+@Audited
+public class WorkflowDocument {
+    @Id
+    @GeneratedValue
+    private Long id;
+    
+    @ManyToOne
+    private MaterialWorkflow workflow;
+    
+    private String fileName;
+    private String originalFileName;
+    private String filePath;
+    private String fileType;
+    private Long fileSize;
+    private String uploadedBy;
+    private LocalDateTime uploadedAt;
+    private Boolean isReused;
+    private Long originalDocumentId; // Reference to original document if reused
 }
 ```
 
@@ -172,6 +214,19 @@ public class QuestionnaireResponse {
 - Provides progress tracking
 - Manages draft saves and auto-recovery
 
+**DocumentService**
+- Handles file upload and storage management
+- Manages document reuse logic for same project/material combinations
+- Provides secure document access and download functionality
+- Maintains document metadata and audit trails
+
+**ProjectService**
+- Provides project code dropdown data from FSOBJECTREFERENCE (object_type='PROJECT', object_key LIKE 'SER%')
+- Manages material code retrieval based on project selection (r_object_type='ITEM', ref_code='SER_PRD_ITEM')
+- Handles plant and block code lookups from FSLOCATION (location_code patterns)
+- Implements dependent dropdown logic: materials filtered by selected project code
+- Integrates with QRMFG_QUESTIONNAIRE_MASTER for questionnaire template population
+
 #### 3. Controller Layer
 
 **WorkflowController**
@@ -195,6 +250,67 @@ public class WorkflowController {
     
     @GetMapping("/pending")
     public ResponseEntity<List<WorkflowSummary>> getPendingWorkflows();
+    
+    @GetMapping("/{id}/documents")
+    @PreAuthorize("hasRole('PLANT_USER') or hasRole('JVC_USER')")
+    public ResponseEntity<List<DocumentSummary>> getWorkflowDocuments(@PathVariable Long id);
+    
+    @GetMapping("/documents/reusable")
+    @PreAuthorize("hasRole('JVC_USER')")
+    public ResponseEntity<List<DocumentSummary>> getReusableDocuments(
+        @RequestParam String projectCode, @RequestParam String materialCode);
+}
+```
+
+**ProjectController**
+```java
+@RestController
+@RequestMapping("/api/projects")
+@PreAuthorize("hasRole('USER')")
+public class ProjectController {
+    
+    @GetMapping
+    public ResponseEntity<List<ProjectOption>> getActiveProjects(); 
+    // Query: SELECT DISTINCT object_key as PROJECT_CODE, object_key as label FROM fsobjectreference WHERE object_type='PROJECT' AND object_key LIKE 'SER%'
+    
+    @GetMapping("/{projectCode}/materials")
+    public ResponseEntity<List<MaterialOption>> getMaterialsByProject(@PathVariable String projectCode);
+    // Query: SELECT r_object_key as MATERIAL_CODE, r_object_desc as label FROM fsobjectreference 
+    // WHERE object_type='PROJECT' AND object_key = :projectCode AND r_object_type='ITEM' AND ref_code='SER_PRD_ITEM'
+    
+    @GetMapping("/plants")
+    public ResponseEntity<List<PlantOption>> getPlantCodes();
+    // Query: SELECT location_code as value, location_code as label FROM fslocation WHERE location_code LIKE '1%'
+    
+    @GetMapping("/plants/{plantCode}/blocks")
+    public ResponseEntity<List<BlockOption>> getBlocksByPlant(@PathVariable String plantCode);
+    // Query: SELECT location_code as value, location_code as label FROM fslocation WHERE location_code LIKE :plantCode || '%'
+}
+```
+
+**DocumentController**
+```java
+@RestController
+@RequestMapping("/api/documents")
+@PreAuthorize("hasRole('USER')")
+public class DocumentController {
+    
+    @PostMapping("/upload")
+    @PreAuthorize("hasRole('JVC_USER')")
+    public ResponseEntity<List<DocumentSummary>> uploadDocuments(
+        @RequestParam("files") MultipartFile[] files,
+        @RequestParam String projectCode,
+        @RequestParam String materialCode,
+        @RequestParam Long workflowId);
+    
+    @GetMapping("/{id}/download")
+    @PreAuthorize("hasRole('PLANT_USER') or hasRole('JVC_USER')")
+    public ResponseEntity<Resource> downloadDocument(@PathVariable Long id);
+    
+    @PostMapping("/reuse")
+    @PreAuthorize("hasRole('JVC_USER')")
+    public ResponseEntity<List<DocumentSummary>> reuseDocuments(
+        @RequestBody DocumentReuseRequest request);
 }
 ```
 
@@ -210,7 +326,7 @@ public class QueryController {
     public ResponseEntity<Query> raiseQuery(@RequestBody QueryRequest request);
     
     @PutMapping("/{id}/resolve")
-    @PreAuthorize("hasRole('CQS_USER') or hasRole('TECH_USER')")
+    @PreAuthorize("hasRole('CQS_USER') or hasRole('TECH_USER') or hasRole('JVC_USER')")
     public ResponseEntity<Query> resolveQuery(@PathVariable Long id, @RequestBody QueryResponse response);
     
     @GetMapping("/inbox")
@@ -237,17 +353,19 @@ public class QueryController {
 #### 2. Role-Specific Components
 
 **JVCWorkflowInitiation**
-- Material creation form with validation
-- Plant selection dropdown
-- Document upload functionality
-- Workflow extension actions
+- Enhanced material extension form with Project Code, Material Code, Plant Code, and Block ID dropdowns
+- Dependent dropdown logic (Material depends on Project, Block depends on Plant)
+- Multi-file document upload with validation (PDF/DOCX/XLSX, max 25MB)
+- Document reuse detection and selection for same project/material combinations
+- Workflow extension actions with comprehensive validation
 
 **PlantQuestionnaire**
-- Dynamic multi-step form renderer
-- Progress tracking component
-- Query raising modal
-- Draft save functionality
-- Context panel for JVC data
+- Dynamic multi-step form renderer with 10-20 fields grouped in logical steps
+- Progress tracking component showing current step (e.g., Step 3/10)
+- Query raising modal with team selection (CQS/Tech/JVC) and field context
+- Draft save functionality with auto-recovery
+- Context panel displaying JVC-provided material data and uploaded documents
+- Document download functionality for JVC-uploaded files
 
 **QueryInbox**
 - Filterable query table
@@ -286,12 +404,15 @@ graph TD
 -- Workflow Management Tables
 CREATE TABLE material_workflows (
     id NUMBER PRIMARY KEY,
-    material_id VARCHAR2(50) UNIQUE NOT NULL,
+    project_code VARCHAR2(50) NOT NULL,
+    material_code VARCHAR2(50) NOT NULL,
+    plant_code VARCHAR2(50) NOT NULL,
+    block_id VARCHAR2(50) NOT NULL,
     state VARCHAR2(20) NOT NULL,
-    assigned_plant VARCHAR2(100),
     initiated_by VARCHAR2(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_modified TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    last_modified TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(project_code, material_code, plant_code, block_id)
 );
 
 CREATE TABLE queries (
@@ -300,7 +421,7 @@ CREATE TABLE queries (
     question CLOB NOT NULL,
     step_number NUMBER,
     field_name VARCHAR2(100),
-    assigned_team VARCHAR2(20) NOT NULL,
+    assigned_team VARCHAR2(20) NOT NULL, -- CQS, TECH, JVC
     status VARCHAR2(20) DEFAULT 'OPEN',
     response CLOB,
     raised_by VARCHAR2(100),
@@ -319,17 +440,66 @@ CREATE TABLE questionnaire_responses (
     modified_by VARCHAR2(100)
 );
 
+CREATE TABLE workflow_documents (
+    id NUMBER PRIMARY KEY,
+    workflow_id NUMBER REFERENCES material_workflows(id),
+    file_name VARCHAR2(255) NOT NULL,
+    original_file_name VARCHAR2(255) NOT NULL,
+    file_path VARCHAR2(500) NOT NULL,
+    file_type VARCHAR2(10) NOT NULL,
+    file_size NUMBER NOT NULL,
+    uploaded_by VARCHAR2(100),
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_reused NUMBER(1) DEFAULT 0,
+    original_document_id NUMBER REFERENCES workflow_documents(id)
+);
+
+-- Reference Tables (existing in system)
+-- FSOBJECTREFERENCE - contains project and material relationships
+--   Structure: object_type, object_key (PROJECT_CODE), r_object_type, r_object_key (MATERIAL_CODE), r_object_desc, ref_code
+--   Example: PROJECT 'SER-A-000210' -> ITEM 'R31516J' with ref_code 'SER_PRD_ITEM'
+-- FSLOCATION - contains location codes
+--   Structure: location_code (plant codes like '1%' pattern)
+-- QRMFG_QUESTIONNAIRE_MASTER - contains questionnaire master templates
+
+-- Sample Queries for Reference:
+-- Projects and Materials:
+-- SELECT object_type, object_key as PROJECT_CODE, r_object_type, r_object_key as MATERIAL_CODE, r_object_desc, ref_code 
+-- FROM fsobjectreference 
+-- WHERE object_type='PROJECT' AND object_key LIKE 'SER%' AND r_object_type='ITEM' AND r_object_key LIKE 'R%' AND ref_code='SER_PRD_ITEM'
+
+-- Plant Codes:
+-- SELECT location_code FROM fslocation WHERE location_code LIKE '1%'
+
 -- Audit Tables (Hibernate Envers)
 CREATE TABLE material_workflows_aud (
     id NUMBER,
     rev NUMBER,
     revtype NUMBER,
-    material_id VARCHAR2(50),
+    project_code VARCHAR2(50),
+    material_code VARCHAR2(50),
+    plant_code VARCHAR2(50),
+    block_id VARCHAR2(50),
     state VARCHAR2(20),
-    assigned_plant VARCHAR2(100),
     initiated_by VARCHAR2(100),
     created_at TIMESTAMP,
     last_modified TIMESTAMP
+);
+
+CREATE TABLE workflow_documents_aud (
+    id NUMBER,
+    rev NUMBER,
+    revtype NUMBER,
+    workflow_id NUMBER,
+    file_name VARCHAR2(255),
+    original_file_name VARCHAR2(255),
+    file_path VARCHAR2(500),
+    file_type VARCHAR2(10),
+    file_size NUMBER,
+    uploaded_by VARCHAR2(100),
+    uploaded_at TIMESTAMP,
+    is_reused NUMBER(1),
+    original_document_id NUMBER
 );
 ```
 
@@ -339,12 +509,16 @@ CREATE TABLE material_workflows_aud (
 ```java
 public class WorkflowSummary {
     private Long id;
-    private String materialId;
+    private String projectCode;
+    private String materialCode;
+    private String plantCode;
+    private String blockId;
     private WorkflowState currentState;
     private String actionRequiredBy;
     private Integer daysPending;
     private Integer totalQueries;
     private Integer openQueries;
+    private Integer documentCount;
 }
 ```
 
@@ -352,13 +526,63 @@ public class WorkflowSummary {
 ```java
 public class QuerySummary {
     private Long id;
-    private String materialId;
-    private String plant;
+    private String projectCode;
+    private String materialCode;
+    private String plantCode;
     private Integer stepNumber;
     private String question;
     private Integer daysOpen;
     private QueryTeam assignedTeam;
     private QueryStatus status;
+}
+```
+
+**DocumentSummary DTO**
+```java
+public class DocumentSummary {
+    private Long id;
+    private String fileName;
+    private String originalFileName;
+    private String fileType;
+    private Long fileSize;
+    private String uploadedBy;
+    private LocalDateTime uploadedAt;
+    private Boolean isReused;
+    private String downloadUrl;
+}
+```
+
+**ProjectOption DTO**
+```java
+public class ProjectOption {
+    private String value; // object_key (e.g., "SER-A-000210")
+    private String label; // object_key (same as value for display)
+}
+```
+
+**MaterialOption DTO**
+```java
+public class MaterialOption {
+    private String value; // r_object_key (e.g., "R31516J")
+    private String label; // r_object_desc (e.g., "Axion CS 2455 (DBTO)")
+    private String projectCode; // object_key (parent project)
+}
+```
+
+**PlantOption DTO**
+```java
+public class PlantOption {
+    private String value; // location_code (e.g., "1001")
+    private String label; // location_code (same as value for display)
+}
+```
+
+**BlockOption DTO**
+```java
+public class BlockOption {
+    private String value; // location_code (e.g., "1001-A")
+    private String label; // location_code (same as value for display)
+    private String plantCode; // parent plant code
 }
 ```
 

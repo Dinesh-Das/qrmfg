@@ -2,20 +2,24 @@
 
 ## Introduction
 
-The MSDS Workflow Automation system is a comprehensive Spring Boot + React application that manages Material Safety Data Sheet (MSDS) workflows across multiple teams including JVC, Plant, CQS, and Technology teams. The system provides role-based access control, dynamic questionnaires, query management, and workflow state tracking to streamline the MSDS completion process from initiation to completion.
+The MSDS Workflow Automation system is a comprehensive Spring Boot + React application that manages Material Safety Data Sheet (MSDS) workflows across multiple teams including JVC, Plant, CQS, and Technology teams. The system automates a manual process involving 4 different stakeholders for material safety data sheet completion. It provides role-based access control, dynamic questionnaires, query management, and workflow state tracking to streamline the MSDS completion process from initiation to completion with document reuse capabilities.
 
 ## Requirements
 
 ### Requirement 1
 
-**User Story:** As a JVC team member, I want to initiate MSDS workflows for materials, so that I can start the safety documentation process and assign it to the appropriate plant team.
+**User Story:** As a JVC team member, I want to initiate MSDS workflows for materials with comprehensive project and location details, so that I can start the safety documentation process and assign it to the appropriate plant team with all necessary context and documents.
 
 #### Acceptance Criteria
 
-1. WHEN a JVC user accesses the material initiation screen THEN the system SHALL display a form with Material ID, Plant Selection, and Safety Docs Upload fields
-2. WHEN a JVC user submits a complete material initiation form THEN the system SHALL create a new MaterialWorkflow entity with state JVC_PENDING
-3. WHEN a JVC user clicks "Extend to Plant" THEN the system SHALL transition the workflow state to PLANT_PENDING and notify the assigned plant team
-4. WHEN a JVC user views their dashboard THEN the system SHALL display a list of pending extensions with status filters for "Pending Action" and "Completed"
+1. WHEN a JVC user accesses the material extension screen THEN the system SHALL display a form with Project Code dropdown (populated via GET /api/projects), Material Code dropdown (dependent on project selection via GET /api/materials?project={projectCode}), Plant Code dropdown (from locations table), Block ID dropdown (filtered by plant code from blocks table), and Document Upload fields
+2. WHEN a JVC user selects a project code THEN the system SHALL enable the Material Code dropdown and populate it with materials from the selected project
+3. WHEN a JVC user selects a plant code THEN the system SHALL enable the Block ID dropdown and populate it with blocks from the selected plant
+4. WHEN a JVC user uploads documents THEN the system SHALL store them in the directory structure app/{projectCode}/{materialCode}/ with proper file validation (PDF/DOCX/XLSX, max 25MB per file)
+5. WHEN a JVC user selects the same project and material combination that has been previously extended THEN the system SHALL display existing documents with a "Reuse Documents" option (default checked) to avoid re-uploading
+6. WHEN a JVC user submits a complete material extension form THEN the system SHALL create a new MaterialWorkflow entity with state JVC_PENDING and all selected metadata
+7. WHEN a JVC user clicks "Extend to Plant" THEN the system SHALL transition the workflow state to PLANT_PENDING and notify the assigned plant team with project, material, plant, and block context
+8. WHEN a JVC user views their dashboard THEN the system SHALL display a list of pending extensions with Material ID, Project Code, Plant Code, Block ID, Created Date, and SLA status
 
 ### Requirement 2
 
@@ -89,6 +93,28 @@ The MSDS Workflow Automation system is a comprehensive Spring Boot + React appli
 4. WHEN a user needs historical data THEN the system SHALL provide read-only views for completed materials
 
 ### Requirement 8
+
+**User Story:** As a Plant team member, I want to access and download documents uploaded by JVC teams, so that I can review material specifications while completing questionnaires.
+
+#### Acceptance Criteria
+
+1. WHEN a Plant user accesses an assigned material workflow THEN the system SHALL display all documents uploaded by JVC team in a downloadable format
+2. WHEN a Plant user clicks on a document THEN the system SHALL allow secure download with proper access logging
+3. WHEN a Plant user views document details THEN the system SHALL display file name, upload date, file size, and uploader information
+4. WHEN a Plant user attempts to access documents from unauthorized materials THEN the system SHALL deny access and log the attempt
+
+### Requirement 9
+
+**User Story:** As a JVC team member, I want to reuse previously uploaded documents for the same project and material combination, so that I can avoid redundant uploads and maintain consistency.
+
+#### Acceptance Criteria
+
+1. WHEN a JVC user selects a project and material combination that has existing documents THEN the system SHALL display a "Document Reuse" section showing available files
+2. WHEN a JVC user views reusable documents THEN the system SHALL show file names, upload dates, and previous plant/block assignments
+3. WHEN a JVC user selects "Reuse Documents" THEN the system SHALL copy document references to the new workflow without physical file duplication
+4. WHEN a JVC user chooses to upload new documents instead of reusing THEN the system SHALL allow both options simultaneously
+
+### Requirement 10
 
 **User Story:** As a mobile user, I want to access critical workflow functions on tablets and mobile devices, so that I can work efficiently from the plant floor or remote locations.
 

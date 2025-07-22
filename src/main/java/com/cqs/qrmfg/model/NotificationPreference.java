@@ -98,4 +98,12 @@ public class NotificationPreference {
 
     public String getUpdatedBy() { return updatedBy; }
     public void setUpdatedBy(String updatedBy) { this.updatedBy = updatedBy; }
+
+    public boolean isEnabled() {
+        return getEnabled() != null && getEnabled();
+    }
+
+    public String getPreferenceData() {
+        return null; // TODO: implement if preferenceData field is added
+    }
 }
