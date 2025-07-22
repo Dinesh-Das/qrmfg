@@ -42,7 +42,7 @@ public interface WorkflowRepository extends JpaRepository<MaterialWorkflow, Long
     @Query("SELECT w FROM MaterialWorkflow w WHERE w.state != 'COMPLETED' AND w.initiatedBy = :username ORDER BY w.createdAt DESC")
     List<MaterialWorkflow> findPendingWorkflowsByUser(@Param("username") String username);
     
-    @Query(value = "SELECT * FROM material_workflows WHERE state != 'COMPLETED' AND ((state = 'JVC_PENDING' AND (SYSDATE - created_at) > 3) OR (state = 'PLANT_PENDING' AND (SYSDATE - NVL(last_modified, created_at)) > 3) OR (state IN ('CQS_PENDING', 'TECH_PENDING', 'JVC_PENDING') AND (SYSDATE - last_modified) > 3))", nativeQuery = true)
+    @Query(value = "SELECT * FROM qrmfg_material_workflows WHERE workflow_state != 'COMPLETED' AND ((workflow_state = 'JVC_PENDING' AND (CURRENT_TIMESTAMP - created_at) > INTERVAL '3' DAY) OR (workflow_state = 'PLANT_PENDING' AND (CURRENT_TIMESTAMP - COALESCE(extended_at, created_at)) > INTERVAL '3' DAY) OR (workflow_state IN ('CQS_PENDING', 'TECH_PENDING') AND (CURRENT_TIMESTAMP - last_modified) > INTERVAL '3' DAY))", nativeQuery = true)
     List<MaterialWorkflow> findOverdueWorkflows();
     
     @Query("SELECT DISTINCT w FROM MaterialWorkflow w JOIN w.queries q WHERE q.status = 'OPEN'")
