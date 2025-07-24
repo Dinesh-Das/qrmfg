@@ -9,6 +9,7 @@ import com.cqs.qrmfg.model.WorkflowState;
 import com.cqs.qrmfg.repository.WorkflowRepository;
 import com.cqs.qrmfg.service.NotificationService;
 import com.cqs.qrmfg.service.WorkflowService;
+import com.cqs.qrmfg.service.MetricsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +32,9 @@ public class WorkflowServiceImpl implements WorkflowService {
     
     @Autowired
     private NotificationService notificationService;
+    
+    @Autowired
+    private MetricsService metricsService;
     
     // Basic CRUD operations
     @Override
@@ -79,7 +83,14 @@ public class WorkflowServiceImpl implements WorkflowService {
     @Override
     @Transactional(readOnly = true)
     public List<MaterialWorkflow> findAll() {
-        return workflowRepository.findAll();
+        List<MaterialWorkflow> workflows = workflowRepository.findAllWithQueries();
+        
+        // Initialize documents collection for each workflow within the same transaction
+        for (MaterialWorkflow workflow : workflows) {
+            workflow.getDocuments().size(); // This will trigger lazy loading within transaction
+        }
+        
+        return workflows;
     }
     
     // Workflow creation
@@ -306,19 +317,40 @@ public class WorkflowServiceImpl implements WorkflowService {
     @Override
     @Transactional(readOnly = true)
     public List<MaterialWorkflow> findByState(WorkflowState state) {
-        return workflowRepository.findByState(state);
+        List<MaterialWorkflow> workflows = workflowRepository.findByStateWithQueries(state);
+        
+        // Initialize documents collection for each workflow within the same transaction
+        for (MaterialWorkflow workflow : workflows) {
+            workflow.getDocuments().size(); // This will trigger lazy loading within transaction
+        }
+        
+        return workflows;
     }
     
     @Override
     @Transactional(readOnly = true)
     public List<MaterialWorkflow> findByPlantCode(String plantCode) {
-        return workflowRepository.findByPlantCode(plantCode);
+        List<MaterialWorkflow> workflows = workflowRepository.findByPlantCodeWithQueries(plantCode);
+        
+        // Initialize documents collection for each workflow within the same transaction
+        for (MaterialWorkflow workflow : workflows) {
+            workflow.getDocuments().size(); // This will trigger lazy loading within transaction
+        }
+        
+        return workflows;
     }
     
     @Override
     @Transactional(readOnly = true)
     public List<MaterialWorkflow> findByInitiatedBy(String username) {
-        return workflowRepository.findByInitiatedBy(username);
+        List<MaterialWorkflow> workflows = workflowRepository.findByInitiatedByWithQueries(username);
+        
+        // Initialize documents collection for each workflow within the same transaction
+        for (MaterialWorkflow workflow : workflows) {
+            workflow.getDocuments().size(); // This will trigger lazy loading within transaction
+        }
+        
+        return workflows;
     }
     
     @Override

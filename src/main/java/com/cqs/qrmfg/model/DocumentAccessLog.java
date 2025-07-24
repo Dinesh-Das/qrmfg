@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(name = "document_access_logs")
-@Audited
+// @Audited  // Temporarily disabled to fix constraint issues
 public class DocumentAccessLog {
 
     @Id

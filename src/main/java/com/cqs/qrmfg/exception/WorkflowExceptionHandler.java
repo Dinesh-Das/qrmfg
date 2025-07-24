@@ -290,6 +290,54 @@ public class WorkflowExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
     
+    @ExceptionHandler(ProjectServiceException.class)
+    public ResponseEntity<ErrorResponse> handleProjectServiceException(
+            ProjectServiceException ex, WebRequest request) {
+        logger.warn("Project service exception: {}", ex.getMessage());
+        
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error(ex.getErrorCode())
+                .message(ex.getMessage())
+                .path(request.getDescription(false).replace("uri=", ""))
+                .build();
+                
+        return ResponseEntity.badRequest().body(errorResponse);
+    }
+    
+    @ExceptionHandler(InvalidProjectCodeException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidProjectCode(
+            InvalidProjectCodeException ex, WebRequest request) {
+        logger.warn("Invalid project code: {}", ex.getMessage());
+        
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error(ex.getErrorCode())
+                .message(ex.getMessage())
+                .path(request.getDescription(false).replace("uri=", ""))
+                .build();
+                
+        return ResponseEntity.badRequest().body(errorResponse);
+    }
+    
+    @ExceptionHandler(InvalidMaterialCodeException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidMaterialCode(
+            InvalidMaterialCodeException ex, WebRequest request) {
+        logger.warn("Invalid material code: {}", ex.getMessage());
+        
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error(ex.getErrorCode())
+                .message(ex.getMessage())
+                .path(request.getDescription(false).replace("uri=", ""))
+                .build();
+                
+        return ResponseEntity.badRequest().body(errorResponse);
+    }
+    
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(
             Exception ex, WebRequest request) {

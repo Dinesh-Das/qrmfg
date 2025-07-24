@@ -3,26 +3,37 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Layout, notification } from 'antd';
 import 'antd/dist/reset.css';
 import './App.css';
-import Login from './pages/Login';
+import { useActivityTracking } from './components/useActivityTracking';
+import Login from './screens/Login';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navigation from './components/Navigation';
-import Settings from './pages/Settings';
-import Dashboard from './pages/Dashboard';
-import Reports from './pages/Reports';
-import Home from './pages/Home';
-import AdminPanel from './pages/admin';
-import { isAuthenticated } from './utils/auth';
-import JVCView from './pages/JVCView';
-import CQSView from './pages/CQSView';
-import TechView from './pages/TechView';
-import PlantView from './pages/PlantView';
-import PendingTasks from './pages/PendingTasks';
-import SystemDashboard from './pages/SystemDashboard';
-import WorkflowPage from './pages/WorkflowPage';
+import Settings from './screens/Settings';
+import Dashboard from './screens/Dashboard';
+import Reports from './screens/Reports';
+import Home from './screens/Home';
+import AdminPanel from './screens/admin';
+import { isAuthenticated } from './services/auth';
+import JVCView from './screens/JVCView';
+import CQSView from './screens/CQSView';
+import TechView from './screens/TechView';
+import PlantView from './screens/PlantView';
+import PendingTasks from './screens/PendingTasks';
+import SystemDashboard from './screens/SystemDashboard';
+import WorkflowPage from './screens/WorkflowPage';
+import ApiTest from './screens/ApiTest';
+import Auditlogs from './screens/Auditlogs';
+import Users from './screens/Users';
+import Roles from './screens/Roles';
+import Sessions from './screens/Sessions';
+import UserRoleManagement from './screens/UserRoleManagement';
+import WorkflowMonitoring from './screens/WorkflowMonitoring';
 
 const { Header, Content, Footer } = Layout;
 
 function App() {
+  // Activity tracking
+  const { trackAction } = useActivityTracking('app', true);
+
   // Example notification usage
   const openNotification = () => {
     notification.open({
@@ -33,7 +44,8 @@ function App() {
 
   React.useEffect(() => {
     openNotification();
-  }, []);
+    trackAction('app_start');
+  }, [trackAction]);
 
   const location = window.location.pathname;
   const unauthRoutes = [
@@ -80,6 +92,13 @@ function App() {
               <Route path="/qrmfg/plant" element={<ProtectedRoute><PlantView /></ProtectedRoute>} />
               <Route path="/qrmfg/systemdashboard" element={<ProtectedRoute><SystemDashboard /></ProtectedRoute>} />
               <Route path="/qrmfg/workflows" element={<ProtectedRoute><WorkflowPage /></ProtectedRoute>} />
+              <Route path="/qrmfg/auditlogs" element={<ProtectedRoute><Auditlogs /></ProtectedRoute>} />
+              <Route path="/qrmfg/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
+              <Route path="/qrmfg/roles" element={<ProtectedRoute><Roles /></ProtectedRoute>} />
+              <Route path="/qrmfg/sessions" element={<ProtectedRoute><Sessions /></ProtectedRoute>} />
+              <Route path="/qrmfg/user-role-management" element={<ProtectedRoute><UserRoleManagement /></ProtectedRoute>} />
+              <Route path="/qrmfg/workflow-monitoring" element={<ProtectedRoute><WorkflowMonitoring /></ProtectedRoute>} />
+              <Route path="/qrmfg/api-test" element={<ProtectedRoute><ApiTest /></ProtectedRoute>} />
               <Route path="/qrmfg" element={<ProtectedRoute><Home /></ProtectedRoute>} />
               <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
             </Routes>

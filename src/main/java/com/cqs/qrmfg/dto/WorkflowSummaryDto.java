@@ -9,14 +9,19 @@ import java.time.LocalDateTime;
  */
 public class WorkflowSummaryDto {
     private Long id;
+    private String projectCode;
     private String materialCode;
     private String materialName;
+    private String materialDescription;
     private WorkflowState currentState;
     private String assignedPlant;
+    private String plantCode;
+    private String blockId;
     private String initiatedBy;
     private int daysPending;
     private long totalQueries;
     private long openQueries;
+    private long documentCount;
     private LocalDateTime createdAt;
     private LocalDateTime lastModified;
     private boolean overdue;
@@ -24,18 +29,25 @@ public class WorkflowSummaryDto {
     // Constructors
     public WorkflowSummaryDto() {}
 
-    public WorkflowSummaryDto(Long id, String materialCode, String materialName, WorkflowState currentState,
-                             String assignedPlant, String initiatedBy, int daysPending, long totalQueries,
-                             long openQueries, LocalDateTime createdAt, LocalDateTime lastModified, boolean overdue) {
+    public WorkflowSummaryDto(Long id, String projectCode, String materialCode, String materialName, 
+                             String materialDescription, WorkflowState currentState, String assignedPlant, 
+                             String plantCode, String blockId, String initiatedBy, int daysPending, 
+                             long totalQueries, long openQueries, long documentCount, LocalDateTime createdAt, 
+                             LocalDateTime lastModified, boolean overdue) {
         this.id = id;
+        this.projectCode = projectCode;
         this.materialCode = materialCode;
         this.materialName = materialName;
+        this.materialDescription = materialDescription;
         this.currentState = currentState;
         this.assignedPlant = assignedPlant;
+        this.plantCode = plantCode;
+        this.blockId = blockId;
         this.initiatedBy = initiatedBy;
         this.daysPending = daysPending;
         this.totalQueries = totalQueries;
         this.openQueries = openQueries;
+        this.documentCount = documentCount;
         this.createdAt = createdAt;
         this.lastModified = lastModified;
         this.overdue = overdue;
@@ -136,5 +148,45 @@ public class WorkflowSummaryDto {
 
     public void setOverdue(boolean overdue) {
         this.overdue = overdue;
+    }
+
+    public String getProjectCode() {
+        return projectCode;
+    }
+
+    public void setProjectCode(String projectCode) {
+        this.projectCode = projectCode;
+    }
+
+    public String getMaterialDescription() {
+        return materialDescription;
+    }
+
+    public void setMaterialDescription(String materialDescription) {
+        this.materialDescription = materialDescription;
+    }
+
+    public String getPlantCode() {
+        return plantCode;
+    }
+
+    public void setPlantCode(String plantCode) {
+        this.plantCode = plantCode;
+    }
+
+    public String getBlockId() {
+        return blockId;
+    }
+
+    public void setBlockId(String blockId) {
+        this.blockId = blockId;
+    }
+
+    public long getDocumentCount() {
+        return documentCount;
+    }
+
+    public void setDocumentCount(long documentCount) {
+        this.documentCount = documentCount;
     }
 }

@@ -16,6 +16,6 @@ public class WebSocketConfig implements WebSocketConfigurer {
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(notificationHandler, "/ws/notifications")
-                .setAllowedOrigins("*"); // Configure appropriately for production
+                .setAllowedOrigins("http://localhost:3000"); // Configure appropriately for production
     }
 }

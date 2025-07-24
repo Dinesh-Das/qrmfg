@@ -62,8 +62,8 @@ public interface QRMFGQuestionnaireMasterRepository extends JpaRepository<QRMFGQ
     /**
      * Get questionnaire templates by field type
      */
-    @Query("SELECT q FROM QRMFGQuestionnaireMaster q WHERE q.isActive = true AND q.fieldType = :fieldType ORDER BY q.stepNumber, q.orderIndex")
-    List<QRMFGQuestionnaireMaster> findByFieldType(@Param("fieldType") String fieldType);
+    @Query("SELECT q FROM QRMFGQuestionnaireMaster q WHERE q.isActive = true AND q.questionType = :questionType ORDER BY q.stepNumber, q.orderIndex")
+    List<QRMFGQuestionnaireMaster> findByFieldType(@Param("questionType") String questionType);
 
     /**
      * Get required questionnaire templates
@@ -122,7 +122,7 @@ public interface QRMFGQuestionnaireMasterRepository extends JpaRepository<QRMFGQ
     /**
      * Get questions grouped by field type with counts
      */
-    @Query("SELECT q.fieldType, COUNT(q) FROM QRMFGQuestionnaireMaster q WHERE q.isActive = true GROUP BY q.fieldType ORDER BY q.fieldType")
+    @Query("SELECT q.questionType, COUNT(q) FROM QRMFGQuestionnaireMaster q WHERE q.isActive = true GROUP BY q.questionType ORDER BY q.questionType")
     List<Object[]> getQuestionCountByFieldType();
 
     /**

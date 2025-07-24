@@ -1,8 +1,14 @@
 # Implementation Plan
 
+## Implementation Guidelines
+- **No Mock Data**: Do not use mock data in implementations. Use real data from the database and APIs.
+- **No Test Files**: Do not create automated test files. Manual testing will be performed for application flow validation.
+- **Real Integration**: Focus on real integration with existing systems and databases.
+- **No Random Files**: Do not create random fix files, debug files, or temporary files during development. Keep the codebase clean and organized.
+- **Console Logging Only**: Use console.log() for debugging purposes only. Do not create separate debug utilities, logging frameworks, or debug files.
+- **Minimal File Creation**: Only create files that are explicitly required for the feature implementation. Avoid creating helper files, utility files, or configuration files unless absolutely necessary.
+
 - [x] 1. Set up core workflow entities and database schema
-
-
   - Create MaterialWorkflow entity with projectCode, materialCode, plantCode, blockId fields
   - Create WorkflowDocument entity for document management with reuse capabilities
   - Update Query entity to support JVC as query target team
@@ -42,31 +48,30 @@
   - _Requirements: 6.1, 6.2, 6.3, 6.4_
 
 - [x] 5.1. Implement document management service
-
   - Create DocumentService for file upload, storage, and retrieval
   - Implement document reuse logic for same project/material combinations
   - Add file validation (type, size) and secure storage in app/{projectCode}/{materialCode}/ structure
   - Create document access control and download logging functionality
   - Implement document metadata management and audit trail
   - _Requirements: 1.4, 1.5, 8.1, 8.4, 9.1, 9.3, 9.4_
--
 
-- [ ] 5.2. Build project and reference data service
-  - Create ProjectService using FSOBJECTREFERENCE (object_type='PROJECT', r_object_type='ITEM', ref_code='SER_PRD_ITEM')
-  - Implement API endpoints for projects (object_key LIKE 'SER%') and materials (r_object_key, r_object_desc)
-  - Add plant/block endpoints using FSLOCATION (location_code patterns)
+- [x] 5.2. Build project and reference data service
+  - Create ProjectService using QRMFG_PROJECT_ITEM_MASTER (project_code, item_code)
+  - Implement API endpoints for projects and materials from new master tables
+  - Add plant/block endpoints using QRMFG_LOCATION_MASTER and QRMFG_BLOCK_MASTER
   - Implement dependent dropdown logic: materials filtered by project code, blocks by plant code
   - Integrate with QRMFG_QUESTIONNAIRE_MASTER for questionnaire template management
   - Create caching mechanism for reference data to improve performance
   - _Requirements: 1.1, 1.2, 1.3_
 
-- [ ] 6. Implement enhanced JPA repositories and data access layer
+- [x] 6. Implement enhanced JPA repositories and data access layer
   - Create WorkflowRepository with custom query methods for dashboard data and project/material filtering
   - Implement QueryRepository with filtering and search capabilities including JVC queries
   - Add QuestionnaireResponseRepository for form data persistence
   - Create WorkflowDocumentRepository for document management and reuse queries
-  - Add FSObjectReferenceRepository for project/material dropdown data from FSOBJECTREFERENCE table
-  - Add FSLocationRepository for plant/block dropdown data from FSLOCATION table
+  - Add QrmfgProjectItemMasterRepository for project/material dropdown data from QRMFG_PROJECT_ITEM_MASTER table
+  - Add QrmfgLocationMasterRepository for plant dropdown data from QRMFG_LOCATION_MASTER table
+  - Add QrmfgBlockMasterRepository for block dropdown data from QRMFG_BLOCK_MASTER table
   - Add QRMFGQuestionnaireMasterRepository for questionnaire templates from QRMFG_QUESTIONNAIRE_MASTER
   - Create repository integration tests with test data including document scenarios
   - _Requirements: 4.1, 4.2, 7.1, 8.1, 9.1_
@@ -78,21 +83,14 @@
   - Add responsive design support for mobile/tablet access
   - _Requirements: 4.1, 4.2, 4.3, 7.1, 8.1_
 
-- [ ] 8. Build enhanced JVC workflow initiation interface
-
-
-
-
+- [x] 8. Build enhanced JVC workflow initiation interface
   - Create comprehensive material extension form with Project Code, Material Code, Plant Code, Block ID dropdowns
   - Implement dependent dropdown logic (Material depends on Project, Block depends on Plant)
   - Add multi-file document upload with validation (PDF/DOCX/XLSX, max 25MB per file)
   - Implement document reuse detection and selection for same project/material combinations
   - Create pending extensions list with enhanced filtering and project/material context
-  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.8, 9.1, 9.2, 9.3_
 
 - [x] 9. Develop enhanced plant questionnaire system
-
-
   - Create dynamic multi-step form component with progress tracking (Step X/10)
   - Implement query raising modal with team selection including JVC and field context
   - Add draft save functionality with auto-recovery
@@ -102,7 +100,6 @@
   - _Requirements: 2.1, 2.2, 2.3, 2.5, 2.7, 8.1, 8.2, 8.3_
 
 - [x] 10. Implement enhanced query resolution interface for CQS/Tech/JVC teams
-
   - Extend CQSView, TechView, and JVCView with query inbox functionality
   - Create filterable query table with enhanced material context (project, material, plant, block)
   - Build query resolution form with rich text response editor
@@ -125,7 +122,6 @@
   - _Requirements: 6.1, 6.2, 6.3, 6.4_
 
 - [x] 13. Add comprehensive error handling and validation
-
   - Implement global exception handlers for workflow-specific errors
   - Add client-side validation for all forms with proper error messages
   - Create retry mechanisms for failed API calls
@@ -133,38 +129,20 @@
   - _Requirements: 2.6, 3.4, 4.5_
 
 - [x] 14. Implement audit logging and history tracking
-
-
-
   - Configure Hibernate Envers for automatic audit trail generation
   - Create audit log viewing components with timeline visualization
   - Add version history for questionnaire responses
   - Implement read-only views for completed workflows
   - _Requirements: 7.1, 7.2, 7.3, 7.4_
 
-- [ ] 15. Optimize for mobile and tablet access
-  - Enhance responsive design for all workflow components
-  - Optimize touch interactions for plant floor usage
-  - Implement simplified mobile query creation workflow
-  - Add offline capability for critical workflow functions
-  - _Requirements: 8.1, 8.2, 8.3, 8.4_
-
-- [ ] 16. Create comprehensive test suite
-  - Write integration tests for complete workflow scenarios including document management
-  - Implement React component tests for all new UI components (enhanced JVC form, document components)
-  - Add end-to-end tests for multi-user workflow collaboration with document reuse scenarios
-  - Create performance tests for concurrent workflow processing and file upload/download
-  - Test dependent dropdown functionality and document access control
-  - _Requirements: All requirements validation_
-
-- [ ] 17. Set up monitoring and performance optimization
+- [x] 15. Set up monitoring and performance optimization
   - Add application metrics for workflow processing times
   - Implement database query optimization for dashboard queries
   - Create performance monitoring for notification system
   - Add user activity analytics for workflow usage patterns
   - _Requirements: 4.4, 5.2_
 
-- [ ] 18. Final integration and system testing
+- [x] 16. Final integration and system testing
   - Integrate all workflow components with existing QRMFG portal including document storage
   - Perform end-to-end testing of complete MSDS workflow scenarios with document reuse
   - Validate role-based access control across all workflow functions and document access

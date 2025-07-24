@@ -262,13 +262,13 @@ public class QueryServiceImpl implements QueryService {
     @Override
     @Transactional(readOnly = true)
     public List<Query> findByWorkflowId(Long workflowId) {
-        return queryRepository.findByWorkflowId(workflowId);
+        return queryRepository.findByWorkflow_Id(workflowId);
     }
     
     @Override
     @Transactional(readOnly = true)
     public List<Query> findByMaterialCode(String materialCode) {
-        return queryRepository.findByMaterialCode(materialCode);
+        return queryRepository.findByWorkflow_MaterialCode(materialCode);
     }
     
     @Override
@@ -330,7 +330,7 @@ public class QueryServiceImpl implements QueryService {
     @Override
     @Transactional(readOnly = true)
     public List<Query> findQueriesByWorkflowAndStatus(Long workflowId, QueryStatus status) {
-        return queryRepository.findByWorkflowIdAndStatus(workflowId, status);
+        return queryRepository.findByWorkflow_IdAndStatus(workflowId, status);
     }
     
     @Override
@@ -348,7 +348,8 @@ public class QueryServiceImpl implements QueryService {
     @Override
     @Transactional(readOnly = true)
     public List<Query> findOverdueQueries() {
-        return queryRepository.findOverdueQueries();
+        LocalDateTime cutoffTime = LocalDateTime.now().minusHours(72); // Consider queries older than 72 hours (3 days) as overdue
+        return queryRepository.findOverdueQueries(cutoffTime);
     }
     
     @Override
@@ -374,20 +375,21 @@ public class QueryServiceImpl implements QueryService {
     @Override
     @Transactional(readOnly = true)
     public List<Query> findQueriesOverSLA(int slaHours) {
-        return queryRepository.findQueriesOverSLA(slaHours);
+        LocalDateTime cutoffTime = LocalDateTime.now().minusHours(slaHours);
+        return queryRepository.findQueriesOverSLA(cutoffTime);
     }
     
     @Override
     @Transactional(readOnly = true)
     public double getAverageResolutionTimeHours(QueryTeam team) {
-        Double avgTime = queryRepository.getAverageResolutionTimeHours(team.name());
+        Double avgTime = queryRepository.getAverageResolutionTimeHours(team);
         return avgTime != null ? avgTime : 0.0;
     }
     
     @Override
     @Transactional(readOnly = true)
     public double getAverageResolutionTimeHours(QueryTeam team, LocalDateTime start, LocalDateTime end) {
-        Double avgTime = queryRepository.getAverageResolutionTimeHours(team.name(), start, end);
+        Double avgTime = queryRepository.getAverageResolutionTimeHours(team, start, end);
         return avgTime != null ? avgTime : 0.0;
     }
     
@@ -406,7 +408,8 @@ public class QueryServiceImpl implements QueryService {
     @Override
     @Transactional(readOnly = true)
     public long countOverdueQueries() {
-        return queryRepository.countOverdueQueries();
+        LocalDateTime cutoffTime = LocalDateTime.now().minusHours(72); // Consider queries older than 72 hours (3 days) as overdue
+        return queryRepository.countOverdueQueries(cutoffTime);
     }
     
     @Override
@@ -437,7 +440,8 @@ public class QueryServiceImpl implements QueryService {
     @Override
     @Transactional(readOnly = true)
     public List<Query> findQueriesNeedingAttention() {
-        return queryRepository.findQueriesNeedingAttention();
+        LocalDateTime cutoffTime = LocalDateTime.now().minusHours(48); // Queries older than 48 hours need attention
+        return queryRepository.findQueriesNeedingAttention(cutoffTime);
     }
     
     // Validation and business rules

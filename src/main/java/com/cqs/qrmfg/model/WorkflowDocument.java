@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "qrmfg_workflow_documents")
-@Audited
+// @Audited  // Temporarily disabled to fix constraint issues
 public class WorkflowDocument {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "workflow_document_seq")

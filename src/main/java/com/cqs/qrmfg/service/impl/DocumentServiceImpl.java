@@ -44,7 +44,7 @@ public class DocumentServiceImpl implements DocumentService {
     @Autowired
     private DocumentAccessLogRepository documentAccessLogRepository;
 
-    @Value("${app.document.storage.path:app}")
+    @Value("${app.document.storage.path:./documents}")
     private String documentStoragePath;
 
     @Value("${app.document.max.size:26214400}") // 25MB in bytes
@@ -59,6 +59,9 @@ public class DocumentServiceImpl implements DocumentService {
 
         List<DocumentSummary> uploadedDocuments = new ArrayList<>();
 
+        // Ensure the directory structure exists
+        ensureDirectoryExists(projectCode, materialCode);
+
         for (MultipartFile file : files) {
             if (!isValidFile(file)) {
                 throw new DocumentException("Invalid file: " + file.getOriginalFilename());
@@ -66,12 +69,18 @@ public class DocumentServiceImpl implements DocumentService {
 
             try {
                 String fileName = storeFile(file, projectCode, materialCode);
+                String filePath = getFilePath(projectCode, materialCode, fileName);
+                
+                System.out.println("Storing document: " + file.getOriginalFilename() + 
+                    " at path: " + filePath + 
+                    " for project: " + projectCode + 
+                    ", material: " + materialCode);
                 
                 WorkflowDocument document = new WorkflowDocument();
                 document.setWorkflow(workflow);
                 document.setFileName(fileName);
                 document.setOriginalFileName(file.getOriginalFilename());
-                document.setFilePath(getFilePath(projectCode, materialCode, fileName));
+                document.setFilePath(filePath);
                 document.setFileType(getFileExtension(file.getOriginalFilename()));
                 document.setFileSize(file.getSize());
                 document.setUploadedBy(uploadedBy);
@@ -198,14 +207,15 @@ public class DocumentServiceImpl implements DocumentService {
     }
 
     private String storeFile(MultipartFile file, String projectCode, String materialCode) throws IOException {
-        // Create directory structure: app/{projectCode}/{materialCode}/
+        // Create directory structure: documents/{projectCode}/{materialCode}/
         Path uploadPath = Paths.get(documentStoragePath, projectCode, materialCode);
         Files.createDirectories(uploadPath);
 
-        // Generate unique filename
+        // Generate unique filename with timestamp for better organization
         String originalFilename = file.getOriginalFilename();
         String fileExtension = getFileExtension(originalFilename);
-        String uniqueFilename = UUID.randomUUID().toString() + "." + fileExtension;
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String uniqueFilename = timestamp + "_" + UUID.randomUUID().toString() + "." + fileExtension;
 
         // Store the file
         Path filePath = uploadPath.resolve(uniqueFilename);
@@ -218,11 +228,71 @@ public class DocumentServiceImpl implements DocumentService {
         return Paths.get(documentStoragePath, projectCode, materialCode, fileName).toString();
     }
 
+    private String getAbsoluteFilePath(String projectCode, String materialCode, String fileName) {
+        return Paths.get(documentStoragePath, projectCode, materialCode, fileName).toAbsolutePath().toString();
+    }
+
     private String getFileExtension(String filename) {
         if (filename == null || filename.lastIndexOf('.') == -1) {
             return "";
         }
         return filename.substring(filename.lastIndexOf('.') + 1);
+    }
+
+    private void ensureDirectoryExists(String projectCode, String materialCode) {
+        try {
+            Path uploadPath = Paths.get(documentStoragePath, projectCode, materialCode);
+            Files.createDirectories(uploadPath);
+            System.out.println("Created/verified directory structure: " + uploadPath.toAbsolutePath());
+        } catch (IOException e) {
+            throw new DocumentException("Failed to create directory structure for project: " + 
+                projectCode + ", material: " + materialCode, e);
+        }
+    }
+
+    @Override
+    public java.util.Map<String, Object> getStorageInfo() {
+        java.util.Map<String, Object> info = new java.util.HashMap<>();
+        
+        try {
+            // Get current working directory
+            String currentDir = System.getProperty("user.dir");
+            info.put("currentWorkingDirectory", currentDir);
+            info.put("configuredStoragePath", documentStoragePath);
+            
+            // Get absolute path of storage directory
+            Path storagePath = Paths.get(documentStoragePath);
+            info.put("absoluteStoragePath", storagePath.toAbsolutePath().toString());
+            info.put("storagePathExists", Files.exists(storagePath));
+            
+            // Test directory creation
+            String testProjectCode = "SER-A-123456";
+            String testMaterialCode = "R12345A";
+            Path testPath = Paths.get(documentStoragePath, testProjectCode, testMaterialCode);
+            
+            info.put("testProjectPath", testPath.toAbsolutePath().toString());
+            info.put("testProjectPathExists", Files.exists(testPath));
+            
+            // Create test directory
+            Files.createDirectories(testPath);
+            info.put("testDirectoryCreated", Files.exists(testPath));
+            
+            // List existing directories
+            if (Files.exists(storagePath)) {
+                java.util.List<String> existingDirs = new java.util.ArrayList<>();
+                try (java.util.stream.Stream<Path> paths = Files.list(storagePath)) {
+                    paths.filter(Files::isDirectory)
+                         .forEach(path -> existingDirs.add(path.getFileName().toString()));
+                }
+                info.put("existingProjectDirectories", existingDirs);
+            }
+            
+        } catch (Exception e) {
+            info.put("error", e.getMessage());
+            info.put("errorType", e.getClass().getSimpleName());
+        }
+        
+        return info;
     }
 
     @Override

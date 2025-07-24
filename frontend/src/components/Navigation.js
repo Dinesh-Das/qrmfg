@@ -12,11 +12,18 @@ import {
   DashboardOutlined,
   HomeOutlined,
   CheckSquareOutlined,
-  BankOutlined
+  BankOutlined,
+  ApiOutlined,
+  AuditOutlined,
+  UsergroupAddOutlined,
+  KeyOutlined,
+  ClockCircleOutlined,
+  MonitorOutlined
 } from '@ant-design/icons';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { isAuthenticated, isAdmin } from '../utils/auth';
+import { isAuthenticated, isAdmin } from '../services/auth';
 import axios from 'axios';
+import { apiRequest } from '../api/api';
 
 const { Sider } = Layout;
 
@@ -28,12 +35,16 @@ const Navigation = () => {
 
   useEffect(() => {
     if (isAuthenticated() && !isAdmin()) {
-      axios.get('/qrmfg/api/v1/admin/screen-role-mapping/my-screens')
-        .then(res => {
-          setAllowedScreens(res.data);
-          console.log('Allowed screens:', res.data);
+      const token = localStorage.getItem('token');
+      apiRequest('/admin/screen-role-mapping/my-screens')
+        .then(data => {
+          setAllowedScreens(data);
+          console.log('Allowed screens:', data);
         })
-        .catch(() => setAllowedScreens([]));
+        .catch(error => {
+          console.error('Error fetching allowed screens:', error);
+          setAllowedScreens([]);
+        });
     }
   }, []);
 
@@ -50,6 +61,7 @@ const Navigation = () => {
     { key: '/qrmfg', icon: <HomeOutlined />, label: <Link to="/qrmfg">Home</Link> },
     { key: '/qrmfg/dashboard', icon: <DashboardOutlined />, label: <Link to="/qrmfg/dashboard">Dashboard</Link> },
     { key: '/qrmfg/systemdashboard', icon: <DesktopOutlined />, label: <Link to="/qrmfg/systemdashboard">System Dashboard</Link> },
+    { key: '/qrmfg/workflows', icon: <AppstoreOutlined />, label: <Link to="/qrmfg/workflows">Workflows</Link> },
     { key: '/qrmfg/admin', icon: <UserOutlined />, label: <Link to="/qrmfg/admin">Admin Panel</Link> },
     { key: '/qrmfg/reports', icon: <FileSearchOutlined />, label: <Link to="/qrmfg/reports">Reports</Link> },
     { key: '/qrmfg/pendingtasks', icon: <CheckSquareOutlined />, label: <Link to="/qrmfg/pendingtasks">Pending Tasks</Link> },
@@ -57,6 +69,13 @@ const Navigation = () => {
     { key: '/qrmfg/cqs', icon: <SafetyOutlined />, label: <Link to="/qrmfg/cqs">CQS</Link> },
     { key: '/qrmfg/tech', icon: <TeamOutlined />, label: <Link to="/qrmfg/tech">TECH</Link> },
     { key: '/qrmfg/plant', icon: <BankOutlined />, label: <Link to="/qrmfg/plant">PLANT</Link> },
+    { key: '/qrmfg/auditlogs', icon: <AuditOutlined />, label: <Link to="/qrmfg/auditlogs">Audit Logs</Link> },
+    { key: '/qrmfg/users', icon: <UserOutlined />, label: <Link to="/qrmfg/users">Users</Link> },
+    { key: '/qrmfg/roles', icon: <KeyOutlined />, label: <Link to="/qrmfg/roles">Roles</Link> },
+    { key: '/qrmfg/sessions', icon: <ClockCircleOutlined />, label: <Link to="/qrmfg/sessions">Sessions</Link> },
+    { key: '/qrmfg/user-role-management', icon: <UsergroupAddOutlined />, label: <Link to="/qrmfg/user-role-management">User Role Management</Link> },
+    { key: '/qrmfg/workflow-monitoring', icon: <MonitorOutlined />, label: <Link to="/qrmfg/workflow-monitoring">Workflow Monitoring</Link> },
+    { key: '/qrmfg/api-test', icon: <ApiOutlined />, label: <Link to="/qrmfg/api-test">API Test</Link> },
     { key: '/qrmfg/settings', icon: <SettingOutlined />, label: <Link to="/qrmfg/settings">Settings</Link> },
   ];
 

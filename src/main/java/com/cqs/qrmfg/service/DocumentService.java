@@ -90,4 +90,9 @@ public interface DocumentService {
      * Get reusable documents with enhanced metadata
      */
     List<DocumentSummary> getReusableDocumentsEnhanced(String projectCode, String materialCode);
+
+    /**
+     * Get document storage information for debugging
+     */
+    java.util.Map<String, Object> getStorageInfo();
 }

@@ -140,4 +140,108 @@ public interface WorkflowDocumentRepository extends JpaRepository<WorkflowDocume
      */
     @Query("SELECT w.projectCode, COUNT(wd), SUM(wd.fileSize) FROM WorkflowDocument wd JOIN wd.workflow w GROUP BY w.projectCode")
     List<Object[]> getDocumentStatsByProject();
-}
+
+    /**
+     * Enhanced document management and reuse queries for dashboard
+     */
+    @Query("SELECT wd FROM WorkflowDocument wd JOIN wd.workflow w WHERE " +
+           "(:projectCodes IS NULL OR w.projectCode IN :projectCodes) AND " +
+           "(:materialCodes IS NULL OR w.materialCode IN :materialCodes) AND " +
+           "(:plantCodes IS NULL OR w.plantCode IN :plantCodes) AND " +
+           "(:fileTypes IS NULL OR wd.fileType IN :fileTypes) AND " +
+           "(:uploadedBy IS NULL OR wd.uploadedBy = :uploadedBy) AND " +
+           "(:isReused IS NULL OR wd.isReused = :isReused) AND " +
+           "(:uploadedAfter IS NULL OR wd.uploadedAt >= :uploadedAfter) " +
+           "ORDER BY wd.uploadedAt DESC")
+    List<WorkflowDocument> findDocumentsWithBulkFilters(
+        @Param("projectCodes") List<String> projectCodes,
+        @Param("materialCodes") List<String> materialCodes,
+        @Param("plantCodes") List<String> plantCodes,
+        @Param("fileTypes") List<String> fileTypes,
+        @Param("uploadedBy") String uploadedBy,
+        @Param("isReused") Boolean isReused,
+        @Param("uploadedAfter") java.time.LocalDateTime uploadedAfter);
+
+    /**
+     * Document reuse analytics for dashboard
+     */
+    @Query("SELECT w.projectCode, w.materialCode, COUNT(wd) as totalDocuments, COUNT(CASE WHEN wd.isReused = true THEN 1 END) as reusedDocuments FROM WorkflowDocument wd JOIN wd.workflow w GROUP BY w.projectCode, w.materialCode ORDER BY COUNT(wd) DESC")
+    List<Object[]> getDocumentReuseAnalytics();
+
+    /**
+     * Document usage trends
+     */
+    @Query(value = "SELECT DATE(uploaded_at), file_type, COUNT(*) FROM qrmfg_workflow_documents WHERE uploaded_at >= :startDate GROUP BY DATE(uploaded_at), file_type ORDER BY DATE(uploaded_at), file_type", nativeQuery = true)
+    List<Object[]> getDocumentUploadTrend(@Param("startDate") java.time.LocalDateTime startDate);
+
+    /**
+     * Storage usage analysis
+     */
+    @Query("SELECT wd.fileType, COUNT(wd) as fileCount, SUM(wd.fileSize) as totalSize, AVG(wd.fileSize) as avgSize FROM WorkflowDocument wd GROUP BY wd.fileType ORDER BY SUM(wd.fileSize) DESC")
+    List<Object[]> getStorageUsageByFileType();
+
+    @Query("SELECT w.projectCode, COUNT(wd) as fileCount, SUM(wd.fileSize) as totalSize FROM WorkflowDocument wd JOIN wd.workflow w GROUP BY w.projectCode ORDER BY SUM(wd.fileSize) DESC")
+    List<Object[]> getStorageUsageByProject();
+
+    /**
+     * User document activity
+     */
+    @Query("SELECT wd.uploadedBy, COUNT(wd) as uploadCount, SUM(wd.fileSize) as totalSize FROM WorkflowDocument wd WHERE wd.uploadedAt >= :startDate GROUP BY wd.uploadedBy ORDER BY COUNT(wd) DESC")
+    List<Object[]> getUserDocumentActivity(@Param("startDate") java.time.LocalDateTime startDate);
+
+    /**
+     * Document reuse efficiency
+     */
+    @Query("SELECT COUNT(CASE WHEN wd.isReused = false THEN 1 END) as originalDocuments, COUNT(CASE WHEN wd.isReused = true THEN 1 END) as reusedDocuments, (COUNT(CASE WHEN wd.isReused = true THEN 1 END) * 100.0 / COUNT(*)) as reusePercentage FROM WorkflowDocument wd")
+    List<Object[]> getDocumentReuseEfficiency();
+
+    /**
+     * Find documents that can be reused for new workflows
+     */
+    @Query("SELECT wd FROM WorkflowDocument wd JOIN wd.workflow w WHERE w.projectCode = :projectCode AND w.materialCode = :materialCode AND wd.isReused = false AND w.state = 'COMPLETED' ORDER BY wd.uploadedAt DESC")
+    List<WorkflowDocument> findAvailableDocumentsForReuse(@Param("projectCode") String projectCode, @Param("materialCode") String materialCode);
+
+    /**
+     * Document access patterns
+     */
+    @Query("SELECT w.plantCode, wd.fileType, COUNT(wd) as accessCount FROM WorkflowDocument wd JOIN wd.workflow w GROUP BY w.plantCode, wd.fileType ORDER BY w.plantCode, COUNT(wd) DESC")
+    List<Object[]> getDocumentAccessPatterns();
+
+    /**
+     * Large file analysis
+     */
+    @Query("SELECT wd FROM WorkflowDocument wd WHERE wd.fileSize > :sizeThreshold ORDER BY wd.fileSize DESC")
+    List<WorkflowDocument> findLargeDocuments(@Param("sizeThreshold") Long sizeThreshold);
+
+    /**
+     * Document validation queries
+     */
+    @Query("SELECT wd FROM WorkflowDocument wd WHERE wd.fileType NOT IN ('pdf', 'docx', 'xlsx')")
+    List<WorkflowDocument> findInvalidFileTypes();
+
+    @Query("SELECT wd FROM WorkflowDocument wd WHERE wd.fileSize > 26214400") // 25MB in bytes
+    List<WorkflowDocument> findOversizedDocuments();
+
+    /**
+     * Orphaned document cleanup
+     */
+    @Query("SELECT wd FROM WorkflowDocument wd WHERE wd.workflow IS NULL")
+    List<WorkflowDocument> findOrphanedDocuments();
+
+    /**
+     * Document chain analysis for reuse tracking
+     */
+    @Query("SELECT wd FROM WorkflowDocument wd WHERE wd.originalDocument.id = :originalDocumentId ORDER BY wd.uploadedAt")
+    List<WorkflowDocument> findDocumentReuseChain(@Param("originalDocumentId") Long originalDocumentId);
+
+    /**
+     * Recent document activity for dashboard
+     */
+    @Query("SELECT wd FROM WorkflowDocument wd WHERE wd.uploadedAt >= :cutoffTime ORDER BY wd.uploadedAt DESC")
+    List<WorkflowDocument> findRecentDocuments(@Param("cutoffTime") java.time.LocalDateTime cutoffTime);
+
+    /**
+     * Document count by workflow status
+     */
+    @Query("SELECT w.state, COUNT(wd) as documentCount FROM WorkflowDocument wd JOIN wd.workflow w GROUP BY w.state ORDER BY w.state")
+    List<Object[]> getDocumentCountByWorkflowState();}

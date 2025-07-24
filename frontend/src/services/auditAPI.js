@@ -1,39 +1,39 @@
-import { apiRequest } from '../utils/api';
+import { apiRequest } from '../api/api';
 
 export const auditAPI = {
   // Workflow audit endpoints
   getWorkflowAuditHistory: (workflowId) => 
-    apiRequest(`/api/audit/workflow/${workflowId}`),
+    apiRequest(`/audit/workflow/${workflowId}`),
   
   getQueryAuditHistory: (queryId) => 
-    apiRequest(`/api/audit/query/${queryId}`),
+    apiRequest(`/audit/query/${queryId}`),
   
   getQuestionnaireResponseAuditHistory: (responseId) => 
-    apiRequest(`/api/audit/response/${responseId}`),
+    apiRequest(`/audit/response/${responseId}`),
   
   getCompleteWorkflowAuditTrail: (workflowId) => 
-    apiRequest(`/api/audit/workflow/${workflowId}/complete`),
+    apiRequest(`/audit/workflow/${workflowId}/complete`),
   
   // Recent audit activity
   getRecentAuditActivity: (days = 7) => 
-    apiRequest(`/api/audit/recent?days=${days}`),
+    apiRequest(`/audit/recent?days=${days}`),
   
   getAuditActivityByUser: (username) => 
-    apiRequest(`/api/audit/by-user/${encodeURIComponent(username)}`),
+    apiRequest(`/audit/by-user/${encodeURIComponent(username)}`),
   
   getAuditActivityByEntityType: (entityType, days = 7) => 
-    apiRequest(`/api/audit/by-entity/${entityType}?days=${days}`),
+    apiRequest(`/audit/by-entity/${entityType}?days=${days}`),
   
   // Audit search and filtering
   searchAuditLogs: (searchParams) => 
-    apiRequest('/api/audit/search', {
+    apiRequest('/audit/search', {
       method: 'POST',
       body: JSON.stringify(searchParams)
     }),
   
   // Export audit data
   exportAuditLogs: (workflowId, format = 'csv') => 
-    apiRequest(`/api/audit/export/${workflowId}?format=${format}`, {
+    apiRequest(`/audit/export/${workflowId}?format=${format}`, {
       method: 'GET',
       headers: {
         'Accept': format === 'csv' ? 'text/csv' : 'application/json'
@@ -42,9 +42,9 @@ export const auditAPI = {
   
   // Read-only workflow view
   getReadOnlyWorkflowView: (workflowId) => 
-    apiRequest(`/api/audit/workflow/${workflowId}/readonly`),
+    apiRequest(`/audit/workflow/${workflowId}/readonly`),
   
   // Version history for questionnaire responses
   getQuestionnaireResponseVersions: (workflowId) => 
-    apiRequest(`/api/audit/workflow/${workflowId}/response-versions`)
+    apiRequest(`/audit/workflow/${workflowId}/response-versions`)
 };

@@ -27,7 +27,6 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/qrmfg/api/v1/queries")
-@CrossOrigin(origins = "*")
 public class QueryController {
 
     @Autowired

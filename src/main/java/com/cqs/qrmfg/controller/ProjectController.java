@@ -16,7 +16,6 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/qrmfg/api/v1/projects")
-@CrossOrigin(origins = "*")
 public class ProjectController {
 
     @Autowired
@@ -24,8 +23,7 @@ public class ProjectController {
 
     /**
      * Get all active projects
-     * Query: SELECT DISTINCT object_key as PROJECT_CODE, object_key as label FROM fsobjectreference 
-     * WHERE object_type='PROJECT' AND object_key LIKE 'SER%'
+     * Query: SELECT DISTINCT project_code FROM qrmfg_project_item_master ORDER BY project_code
      */
     @GetMapping
     @PreAuthorize("hasRole('USER')")
@@ -36,8 +34,7 @@ public class ProjectController {
 
     /**
      * Get materials for a specific project
-     * Query: SELECT r_object_key as MATERIAL_CODE, r_object_desc as label FROM fsobjectreference 
-     * WHERE object_type='PROJECT' AND object_key = :projectCode AND r_object_type='ITEM' AND ref_code='SER_PRD_ITEM'
+     * Query: SELECT DISTINCT item_code FROM qrmfg_project_item_master WHERE project_code = :projectCode ORDER BY item_code
      */
     @GetMapping("/{projectCode}/materials")
     @PreAuthorize("hasRole('USER')")
@@ -48,7 +45,7 @@ public class ProjectController {
 
     /**
      * Get all plant codes
-     * Query: SELECT location_code as value, location_code as label FROM fslocation WHERE location_code LIKE '1%'
+     * Query: SELECT location_code, description FROM qrmfg_location_master ORDER BY location_code
      */
     @GetMapping("/plants")
     @PreAuthorize("hasRole('USER')")
@@ -59,7 +56,7 @@ public class ProjectController {
 
     /**
      * Get blocks for a specific plant
-     * Query: SELECT location_code as value, location_code as label FROM fslocation WHERE location_code LIKE :plantCode || '%'
+     * Query: SELECT block_id, description FROM qrmfg_block_master ORDER BY block_id
      */
     @GetMapping("/plants/{plantCode}/blocks")
     @PreAuthorize("hasRole('USER')")
@@ -219,6 +216,106 @@ public class ProjectController {
         Map<String, String> response = new HashMap<>();
         response.put("message", "Cache '" + cacheName + "' cleared successfully");
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Search projects by partial code or name
+     */
+    @GetMapping("/search")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<List<ProjectOption>> searchProjects(@RequestParam String searchTerm) {
+        List<ProjectOption> projects = projectService.searchProjects(searchTerm);
+        return ResponseEntity.ok(projects);
+    }
+
+    /**
+     * Search materials by partial code or description within a project
+     */
+    @GetMapping("/{projectCode}/materials/search")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<List<MaterialOption>> searchMaterials(
+            @PathVariable String projectCode, 
+            @RequestParam String searchTerm) {
+        List<MaterialOption> materials = projectService.searchMaterials(projectCode, searchTerm);
+        return ResponseEntity.ok(materials);
+    }
+
+    /**
+     * Search plants by partial code
+     */
+    @GetMapping("/plants/search")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<List<PlantOption>> searchPlants(@RequestParam String searchTerm) {
+        List<PlantOption> plants = projectService.searchPlants(searchTerm);
+        return ResponseEntity.ok(plants);
+    }
+
+    /**
+     * Search blocks by partial code within a plant
+     */
+    @GetMapping("/plants/{plantCode}/blocks/search")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<List<BlockOption>> searchBlocks(
+            @PathVariable String plantCode, 
+            @RequestParam String searchTerm) {
+        List<BlockOption> blocks = projectService.searchBlocks(plantCode, searchTerm);
+        return ResponseEntity.ok(blocks);
+    }
+
+    /**
+     * Get projects with material count for performance insights
+     */
+    @GetMapping("/with-material-count")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<List<ProjectOption>> getProjectsWithMaterialCount() {
+        List<ProjectOption> projects = projectService.getProjectsWithMaterialCount();
+        return ResponseEntity.ok(projects);
+    }
+
+    /**
+     * Get plants with block count for performance insights
+     */
+    @GetMapping("/plants/with-block-count")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<List<PlantOption>> getPlantsWithBlockCount() {
+        List<PlantOption> plants = projectService.getPlantsWithBlockCount();
+        return ResponseEntity.ok(plants);
+    }
+
+    /**
+     * Bulk validate project codes
+     */
+    @PostMapping("/validate/bulk")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<Map<String, Boolean>> validateProjectCodes(@RequestBody List<String> projectCodes) {
+        Map<String, Boolean> results = projectService.validateProjectCodes(projectCodes);
+        return ResponseEntity.ok(results);
+    }
+
+    /**
+     * Bulk validate material codes for projects
+     */
+    @PostMapping("/materials/validate/bulk")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<Map<String, Boolean>> validateMaterialCodes(
+            @RequestBody Map<String, Object> request) {
+        @SuppressWarnings("unchecked")
+        List<String> projectCodes = (List<String>) request.get("projectCodes");
+        @SuppressWarnings("unchecked")
+        List<String> materialCodes = (List<String>) request.get("materialCodes");
+        
+        Map<String, Boolean> results = projectService.validateMaterialCodes(projectCodes, materialCodes);
+        return ResponseEntity.ok(results);
+    }
+
+    /**
+     * Get cache statistics for monitoring
+     */
+    @GetMapping("/cache/statistics")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> getCacheStatistics() {
+        Map<String, Object> stats = projectService.getCacheStatistics();
+        return ResponseEntity.ok(stats);
     }
 
     // Exception handlers

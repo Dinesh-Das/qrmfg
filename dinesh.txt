@@ -153,8 +153,9 @@ REPOSITORIES
 - AuditLogRepository.java: JPA repository for AuditLog entity.
 - DashboardRepository.java: JPA repository for dashboard data aggregation.
 - DocumentAccessLogRepository.java: JPA repository for document access logs.
-- FSLocationRepository.java: JPA repository for file system locations.
-- FSObjectReferenceRepository.java: JPA repository for file system object references.
+- QrmfgLocationMasterRepository.java: JPA repository for location master data.
+- QrmfgProjectItemMasterRepository.java: JPA repository for project-item master data.
+- QrmfgBlockMasterRepository.java: JPA repository for block master data.
 - MaterialWorkflowRepository.java: JPA repository for material workflow entities.
 - NotificationPreferenceRepository.java: JPA repository for notification preferences.
 - QRMFGQuestionnaireMasterRepository.java: JPA repository for questionnaire master data.
@@ -171,8 +172,9 @@ MODELS
 - AuditLog.java: Entity for audit log entries.
 - DocumentAccessLog.java: Entity for document access logs.
 - DocumentAccessType.java: Enum for document access types.
-- FSLocation.java: Entity for file system locations.
-- FSObjectReference.java: Entity for file system object references.
+- QrmfgLocationMaster.java: Entity for location master data.
+- QrmfgProjectItemMaster.java: Entity for project-item master data.
+- QrmfgBlockMaster.java: Entity for block master data.
 - MaterialWorkflow.java: Entity for material workflow data.
 - NotificationChannel.java: Enum for notification channels (EMAIL, SLACK, etc.).
 - NotificationPreference.java: Entity for user notification preferences.

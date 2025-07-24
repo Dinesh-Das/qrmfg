@@ -7,6 +7,7 @@ import com.cqs.qrmfg.exception.DocumentException;
 import com.cqs.qrmfg.exception.DocumentNotFoundException;
 import com.cqs.qrmfg.model.User;
 import com.cqs.qrmfg.model.WorkflowDocument;
+import com.cqs.qrmfg.repository.WorkflowDocumentRepository;
 import com.cqs.qrmfg.service.DocumentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
@@ -30,11 +31,13 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/qrmfg/api/v1/documents")
-@CrossOrigin(origins = "*")
 public class DocumentController {
 
     @Autowired
     private DocumentService documentService;
+
+    @Autowired
+    private WorkflowDocumentRepository workflowDocumentRepository;
 
     /**
      * Upload documents for a workflow - JVC users only
@@ -207,6 +210,41 @@ public class DocumentController {
         }
         
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Test endpoint to verify document storage configuration
+     */
+    @GetMapping("/test/storage-info")
+    public ResponseEntity<Map<String, Object>> getStorageInfo() {
+        Map<String, Object> info = documentService.getStorageInfo();
+        return ResponseEntity.ok(info);
+    }
+
+    /**
+     * Test endpoint to list all documents in storage
+     */
+    @GetMapping("/test/list-all")
+    public ResponseEntity<List<Map<String, Object>>> listAllDocuments() {
+        List<WorkflowDocument> allDocuments = workflowDocumentRepository.findAll();
+        List<Map<String, Object>> documentInfo = new java.util.ArrayList<>();
+        
+        for (WorkflowDocument doc : allDocuments) {
+            Map<String, Object> info = new java.util.HashMap<>();
+            info.put("id", doc.getId());
+            info.put("originalFileName", doc.getOriginalFileName());
+            info.put("fileName", doc.getFileName());
+            info.put("filePath", doc.getFilePath());
+            info.put("fileExists", java.nio.file.Files.exists(java.nio.file.Paths.get(doc.getFilePath())));
+            info.put("workflowId", doc.getWorkflow().getId());
+            info.put("projectCode", doc.getWorkflow().getProjectCode());
+            info.put("materialCode", doc.getWorkflow().getMaterialCode());
+            info.put("uploadedBy", doc.getUploadedBy());
+            info.put("uploadedAt", doc.getUploadedAt());
+            documentInfo.add(info);
+        }
+        
+        return ResponseEntity.ok(documentInfo);
     }
 
     // Utility methods

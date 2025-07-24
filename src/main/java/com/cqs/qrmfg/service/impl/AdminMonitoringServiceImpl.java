@@ -49,7 +49,7 @@ public class AdminMonitoringServiceImpl implements AdminMonitoringService {
         long completedWorkflows = materialWorkflowRepository.countByState(WorkflowState.COMPLETED);
         
         // Calculate workflows with open queries
-        long workflowsWithOpenQueries = queryRepository.countDistinctWorkflowIdByStatus(QueryStatus.OPEN);
+        long workflowsWithOpenQueries = queryRepository.countDistinctWorkflow_IdByStatus(QueryStatus.OPEN);
         
         // Calculate overdue workflows (more than 7 days old and not completed)
         LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);

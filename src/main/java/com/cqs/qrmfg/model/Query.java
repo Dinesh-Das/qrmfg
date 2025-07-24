@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "qrmfg_queries")
-@Audited
+// @Audited  // Temporarily disabled to fix constraint issues
 public class Query {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "query_seq")

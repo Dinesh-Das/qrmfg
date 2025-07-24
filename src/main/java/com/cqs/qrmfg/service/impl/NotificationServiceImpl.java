@@ -10,6 +10,7 @@ import com.cqs.qrmfg.model.Query;
 import com.cqs.qrmfg.model.WorkflowState;
 import com.cqs.qrmfg.repository.NotificationPreferenceRepository;
 import com.cqs.qrmfg.service.NotificationService;
+import com.cqs.qrmfg.service.MetricsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +46,9 @@ public class NotificationServiceImpl implements NotificationService {
     
     @Autowired
     private NotificationWebSocketHandler webSocketHandler;
+    
+    @Autowired
+    private MetricsService metricsService;
     
     // In-memory storage for failed notifications (in production, use database or Redis)
     private final Map<String, NotificationRequest> failedNotifications = new ConcurrentHashMap<>();

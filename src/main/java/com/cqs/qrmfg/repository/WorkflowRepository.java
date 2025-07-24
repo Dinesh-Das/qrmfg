@@ -42,7 +42,7 @@ public interface WorkflowRepository extends JpaRepository<MaterialWorkflow, Long
     @Query("SELECT w FROM MaterialWorkflow w WHERE w.state != 'COMPLETED' AND w.initiatedBy = :username ORDER BY w.createdAt DESC")
     List<MaterialWorkflow> findPendingWorkflowsByUser(@Param("username") String username);
     
-    @Query(value = "SELECT * FROM qrmfg_material_workflows WHERE workflow_state != 'COMPLETED' AND ((workflow_state = 'JVC_PENDING' AND (CURRENT_TIMESTAMP - created_at) > INTERVAL '3' DAY) OR (workflow_state = 'PLANT_PENDING' AND (CURRENT_TIMESTAMP - COALESCE(extended_at, created_at)) > INTERVAL '3' DAY) OR (workflow_state IN ('CQS_PENDING', 'TECH_PENDING') AND (CURRENT_TIMESTAMP - last_modified) > INTERVAL '3' DAY))", nativeQuery = true)
+    @Query(value = "SELECT * FROM qrmfg_material_workflows WHERE workflow_state != 'COMPLETED' AND ((workflow_state = 'JVC_PENDING' AND created_at < CURRENT_TIMESTAMP - 3) OR (workflow_state = 'PLANT_PENDING' AND COALESCE(extended_at, created_at) < CURRENT_TIMESTAMP - 3) OR (workflow_state IN ('CQS_PENDING', 'TECH_PENDING') AND last_modified < CURRENT_TIMESTAMP - 3))", nativeQuery = true)
     List<MaterialWorkflow> findOverdueWorkflows();
     
     @Query("SELECT DISTINCT w FROM MaterialWorkflow w JOIN w.queries q WHERE q.status = 'OPEN'")
@@ -80,6 +80,22 @@ public interface WorkflowRepository extends JpaRepository<MaterialWorkflow, Long
     // User-specific queries
     @Query("SELECT w FROM MaterialWorkflow w WHERE w.initiatedBy = :username AND w.state != 'COMPLETED'")
     List<MaterialWorkflow> findPendingByInitiatedBy(@Param("username") String username);
+    
+    // Fetch workflows with queries eagerly loaded to avoid LazyInitializationException
+    // Note: Cannot fetch multiple collections simultaneously due to Hibernate MultipleBagFetchException
+    @Query("SELECT DISTINCT w FROM MaterialWorkflow w LEFT JOIN FETCH w.queries WHERE w.initiatedBy = :username")
+    List<MaterialWorkflow> findByInitiatedByWithQueries(@Param("username") String username);
+    
+    @Query("SELECT DISTINCT w FROM MaterialWorkflow w LEFT JOIN FETCH w.queries")
+    List<MaterialWorkflow> findAllWithQueries();
+    
+    @Query("SELECT DISTINCT w FROM MaterialWorkflow w LEFT JOIN FETCH w.queries WHERE w.state = :state")
+    List<MaterialWorkflow> findByStateWithQueries(@Param("state") WorkflowState state);
+    
+    @Query("SELECT DISTINCT w FROM MaterialWorkflow w LEFT JOIN FETCH w.queries WHERE w.plantCode = :plantCode")
+    List<MaterialWorkflow> findByPlantCodeWithQueries(@Param("plantCode") String plantCode);
+    
+
     
     // Material ID existence check
     boolean existsByMaterialCode(String materialCode);
@@ -181,9 +197,77 @@ public interface WorkflowRepository extends JpaRepository<MaterialWorkflow, Long
     @Query("SELECT w FROM MaterialWorkflow w WHERE w.materialCode IN :materialCodes AND w.state != 'COMPLETED'")
     List<MaterialWorkflow> findPendingByMaterialCodes(@Param("materialCodes") List<String> materialCodes);
 
-    // Additional methods for AdminMonitoringService
-    // countByPlantCodeGrouped() method already defined above
+    // Enhanced dashboard data queries with comprehensive filtering
+    @Query("SELECT w FROM MaterialWorkflow w WHERE " +
+           "(:projectCodes IS NULL OR w.projectCode IN :projectCodes) AND " +
+           "(:materialCodes IS NULL OR w.materialCode IN :materialCodes) AND " +
+           "(:plantCodes IS NULL OR w.plantCode IN :plantCodes) AND " +
+           "(:states IS NULL OR w.state IN :states) AND " +
+           "(:initiatedBy IS NULL OR w.initiatedBy = :initiatedBy) AND " +
+           "(:priorityLevel IS NULL OR w.priorityLevel = :priorityLevel) AND " +
+           "(:createdAfter IS NULL OR w.createdAt >= :createdAfter) AND " +
+           "(:createdBefore IS NULL OR w.createdAt <= :createdBefore) " +
+           "ORDER BY w.createdAt DESC")
+    List<MaterialWorkflow> findWorkflowsWithBulkFilters(
+        @Param("projectCodes") List<String> projectCodes,
+        @Param("materialCodes") List<String> materialCodes,
+        @Param("plantCodes") List<String> plantCodes,
+        @Param("states") List<WorkflowState> states,
+        @Param("initiatedBy") String initiatedBy,
+        @Param("priorityLevel") String priorityLevel,
+        @Param("createdAfter") LocalDateTime createdAfter,
+        @Param("createdBefore") LocalDateTime createdBefore);
 
-    // Use plantCode instead of assignedPlant since that's the actual field
-    // List<MaterialWorkflow> findByAssignedPlant(String plantCode); // Removed - use findByPlantCode instead
+    // Dashboard summary statistics
+    @Query("SELECT w.priorityLevel, w.state, COUNT(w) FROM MaterialWorkflow w WHERE w.state != 'COMPLETED' GROUP BY w.priorityLevel, w.state ORDER BY w.priorityLevel, w.state")
+    List<Object[]> getPendingWorkflowCountByPriorityAndState();
+
+    @Query(value = "SELECT TRUNC(created_at), COUNT(*) FROM qrmfg_material_workflows WHERE created_at >= :startDate GROUP BY TRUNC(created_at) ORDER BY TRUNC(created_at)", nativeQuery = true)
+    List<Object[]> getWorkflowCreationTrend(@Param("startDate") LocalDateTime startDate);
+
+    @Query(value = "SELECT TRUNC(completed_at), COUNT(*) FROM qrmfg_material_workflows WHERE completed_at >= :startDate AND workflow_state = 'COMPLETED' GROUP BY TRUNC(completed_at) ORDER BY TRUNC(completed_at)", nativeQuery = true)
+    List<Object[]> getWorkflowCompletionTrend(@Param("startDate") LocalDateTime startDate);
+
+    // Performance metrics for dashboard
+    @Query(value = "SELECT w.plant_code, w.workflow_state, COUNT(*) as count, AVG((CASE WHEN w.completed_at IS NOT NULL THEN w.completed_at ELSE SYSDATE END - w.created_at) * 24) as avg_hours FROM qrmfg_material_workflows w WHERE w.created_at >= :startDate GROUP BY w.plant_code, w.workflow_state ORDER BY w.plant_code, w.workflow_state", nativeQuery = true)
+    List<Object[]> getWorkflowPerformanceByPlantAndState(@Param("startDate") LocalDateTime startDate);
+
+    // Material reuse analytics for dashboard
+    @Query("SELECT w.projectCode, w.materialCode, COUNT(w) as usageCount, COUNT(DISTINCT w.plantCode) as plantCount FROM MaterialWorkflow w GROUP BY w.projectCode, w.materialCode HAVING COUNT(w) > 1 ORDER BY COUNT(w) DESC")
+    List<Object[]> getMaterialReuseAnalytics();
+
+    // User activity analytics
+    @Query("SELECT w.initiatedBy, COUNT(w) as totalWorkflows, COUNT(CASE WHEN w.state = 'COMPLETED' THEN 1 END) as completedWorkflows FROM MaterialWorkflow w WHERE w.createdAt >= :startDate GROUP BY w.initiatedBy ORDER BY COUNT(w) DESC")
+    List<Object[]> getUserActivityStats(@Param("startDate") LocalDateTime startDate);
+
+    // Workflow aging analysis
+    @Query(value = "SELECT workflow_state, COUNT(*) as count, AVG((SYSDATE - created_at) * 24) as avg_age_hours, MAX((SYSDATE - created_at) * 24) as max_age_hours FROM qrmfg_material_workflows WHERE workflow_state != 'COMPLETED' GROUP BY workflow_state", nativeQuery = true)
+    List<Object[]> getWorkflowAgingAnalysis();
+
+    // Project/Material combination insights
+    @Query("SELECT w.projectCode, COUNT(DISTINCT w.materialCode) as materialCount, COUNT(DISTINCT w.plantCode) as plantCount, COUNT(w) as totalWorkflows FROM MaterialWorkflow w GROUP BY w.projectCode ORDER BY COUNT(w) DESC")
+    List<Object[]> getProjectInsights();
+
+    // Plant workload distribution
+    @Query("SELECT w.plantCode, w.blockId, COUNT(w) as workflowCount, COUNT(CASE WHEN w.state != 'COMPLETED' THEN 1 END) as pendingCount FROM MaterialWorkflow w GROUP BY w.plantCode, w.blockId ORDER BY w.plantCode, w.blockId")
+    List<Object[]> getPlantWorkloadDistribution();
+
+    // Priority-based filtering for dashboard
+    @Query("SELECT w FROM MaterialWorkflow w WHERE w.state != 'COMPLETED' AND (" +
+           "w.priorityLevel IN ('HIGH', 'URGENT') OR " +
+           "(w.state = 'JVC_PENDING' AND w.createdAt < CURRENT_TIMESTAMP - 2) OR " +
+           "(w.state = 'PLANT_PENDING' AND COALESCE(w.extendedAt, w.createdAt) < CURRENT_TIMESTAMP - 2) OR " +
+           "(w.state IN ('CQS_PENDING', 'TECH_PENDING') AND w.lastModified < CURRENT_TIMESTAMP - 1)" +
+           ") ORDER BY w.priorityLevel DESC, w.createdAt ASC")
+    List<MaterialWorkflow> findHighPriorityAndOverdueWorkflows();
+
+    // Document-related workflow queries
+    @Query("SELECT w FROM MaterialWorkflow w WHERE w.id IN (SELECT DISTINCT wd.workflow.id FROM WorkflowDocument wd)")
+    List<MaterialWorkflow> findWorkflowsWithDocuments();
+
+    @Query("SELECT w FROM MaterialWorkflow w WHERE w.id NOT IN (SELECT DISTINCT wd.workflow.id FROM WorkflowDocument wd WHERE wd.workflow.id IS NOT NULL)")
+    List<MaterialWorkflow> findWorkflowsWithoutDocuments();
+
+    @Query("SELECT w.projectCode, w.materialCode, COUNT(DISTINCT w.id) as workflowCount, COUNT(DISTINCT wd.id) as documentCount FROM MaterialWorkflow w LEFT JOIN w.documents wd GROUP BY w.projectCode, w.materialCode ORDER BY COUNT(DISTINCT wd.id) DESC")
+    List<Object[]> getDocumentUsageByProjectMaterial();
 }

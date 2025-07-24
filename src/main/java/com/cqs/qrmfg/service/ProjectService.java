@@ -98,4 +98,49 @@ public interface ProjectService {
      * Clear specific cache
      */
     void clearCache(String cacheName);
+
+    /**
+     * Search projects by partial code or name
+     */
+    List<ProjectOption> searchProjects(String searchTerm);
+
+    /**
+     * Search materials by partial code or description within a project
+     */
+    List<MaterialOption> searchMaterials(String projectCode, String searchTerm);
+
+    /**
+     * Search plants by partial code
+     */
+    List<PlantOption> searchPlants(String searchTerm);
+
+    /**
+     * Search blocks by partial code within a plant
+     */
+    List<BlockOption> searchBlocks(String plantCode, String searchTerm);
+
+    /**
+     * Get projects with material count for performance insights
+     */
+    List<ProjectOption> getProjectsWithMaterialCount();
+
+    /**
+     * Get plants with block count for performance insights
+     */
+    List<PlantOption> getPlantsWithBlockCount();
+
+    /**
+     * Bulk validate project codes
+     */
+    java.util.Map<String, Boolean> validateProjectCodes(java.util.List<String> projectCodes);
+
+    /**
+     * Bulk validate material codes for projects
+     */
+    java.util.Map<String, Boolean> validateMaterialCodes(java.util.List<String> projectCodes, java.util.List<String> materialCodes);
+
+    /**
+     * Get cache statistics for monitoring
+     */
+    java.util.Map<String, Object> getCacheStatistics();
 }

@@ -17,14 +17,19 @@ public class WorkflowMapper {
 
         return new WorkflowSummaryDto(
             workflow.getId(),
+            workflow.getProjectCode(),
             workflow.getMaterialCode(),
             workflow.getMaterialName(),
+            workflow.getMaterialDescription(),
             workflow.getState(),
             workflow.getAssignedPlant(),
+            workflow.getPlantCode(),
+            workflow.getBlockId(),
             workflow.getInitiatedBy(),
             workflow.getDaysPending(),
             workflow.getTotalQueriesCount(),
             workflow.getOpenQueriesCount(),
+            workflow.getDocuments() != null ? workflow.getDocuments().size() : 0,
             workflow.getCreatedAt(),
             workflow.getLastModified(),
             workflow.isOverdue()

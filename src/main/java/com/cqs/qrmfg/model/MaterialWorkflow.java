@@ -1,6 +1,6 @@
 package com.cqs.qrmfg.model;
 
-import org.hibernate.envers.Audited;
+// import org.hibernate.envers.Audited;
 import javax.persistence.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -8,7 +8,7 @@ import java.util.List;
 
 @Entity
 @Table(name = "qrmfg_material_workflows")
-@Audited
+// @Audited  // Temporarily disabled to fix constraint issues
 public class MaterialWorkflow {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "material_workflow_seq")

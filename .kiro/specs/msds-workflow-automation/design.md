@@ -221,9 +221,10 @@ public class QuestionnaireResponse {
 - Maintains document metadata and audit trails
 
 **ProjectService**
-- Provides project code dropdown data from FSOBJECTREFERENCE (object_type='PROJECT', object_key LIKE 'SER%')
-- Manages material code retrieval based on project selection (r_object_type='ITEM', ref_code='SER_PRD_ITEM')
-- Handles plant and block code lookups from FSLOCATION (location_code patterns)
+- Provides project code dropdown data from QRMFG_PROJECT_ITEM_MASTER (distinct project_code)
+- Manages material code retrieval based on project selection (item_code by project_code)
+- Handles plant code lookups from QRMFG_LOCATION_MASTER (location_code, description)
+- Handles block code lookups from QRMFG_BLOCK_MASTER (block_id, description)
 - Implements dependent dropdown logic: materials filtered by selected project code
 - Integrates with QRMFG_QUESTIONNAIRE_MASTER for questionnaire template population
 
@@ -271,12 +272,11 @@ public class ProjectController {
     
     @GetMapping
     public ResponseEntity<List<ProjectOption>> getActiveProjects(); 
-    // Query: SELECT DISTINCT object_key as PROJECT_CODE, object_key as label FROM fsobjectreference WHERE object_type='PROJECT' AND object_key LIKE 'SER%'
+    // Query: SELECT DISTINCT project_code FROM qrmfg_project_item_master ORDER BY project_code
     
     @GetMapping("/{projectCode}/materials")
     public ResponseEntity<List<MaterialOption>> getMaterialsByProject(@PathVariable String projectCode);
-    // Query: SELECT r_object_key as MATERIAL_CODE, r_object_desc as label FROM fsobjectreference 
-    // WHERE object_type='PROJECT' AND object_key = :projectCode AND r_object_type='ITEM' AND ref_code='SER_PRD_ITEM'
+    // Query: SELECT DISTINCT item_code FROM qrmfg_project_item_master WHERE project_code = :projectCode ORDER BY item_code
     
     @GetMapping("/plants")
     public ResponseEntity<List<PlantOption>> getPlantCodes();
@@ -454,19 +454,22 @@ CREATE TABLE workflow_documents (
     original_document_id NUMBER REFERENCES workflow_documents(id)
 );
 
--- Reference Tables (existing in system)
--- FSOBJECTREFERENCE - contains project and material relationships
---   Structure: object_type, object_key (PROJECT_CODE), r_object_type, r_object_key (MATERIAL_CODE), r_object_desc, ref_code
---   Example: PROJECT 'SER-A-000210' -> ITEM 'R31516J' with ref_code 'SER_PRD_ITEM'
+-- Reference Tables (new master data tables)
+-- QRMFG_PROJECT_ITEM_MASTER - contains project and material relationships
+--   Structure: project_code (PK), item_code (PK)
+--   Example: PROJECT 'SER-A-000210' -> ITEM 'R31516J'
+-- QRMFG_LOCATION_MASTER - contains location/plant data
+--   Structure: location_code (PK), description
+-- QRMFG_BLOCK_MASTER - contains block data
+--   Structure: block_id (PK), description
 -- FSLOCATION - contains location codes
 --   Structure: location_code (plant codes like '1%' pattern)
 -- QRMFG_QUESTIONNAIRE_MASTER - contains questionnaire master templates
 
 -- Sample Queries for Reference:
 -- Projects and Materials:
--- SELECT object_type, object_key as PROJECT_CODE, r_object_type, r_object_key as MATERIAL_CODE, r_object_desc, ref_code 
--- FROM fsobjectreference 
--- WHERE object_type='PROJECT' AND object_key LIKE 'SER%' AND r_object_type='ITEM' AND r_object_key LIKE 'R%' AND ref_code='SER_PRD_ITEM'
+-- SELECT project_code, item_code FROM qrmfg_project_item_master 
+-- WHERE project_code LIKE 'SER%' AND item_code LIKE 'R%' ORDER BY project_code, item_code
 
 -- Plant Codes:
 -- SELECT location_code FROM fslocation WHERE location_code LIKE '1%'
@@ -706,6 +709,22 @@ public class WorkflowServiceIntegrationTest {
 - Concurrent workflow processing
 - Query system performance
 - Notification system throughput
+
+## Development Guidelines
+
+### Implementation Standards
+- **No Mock Data**: All implementations must use real data from the database and APIs. Mock data is not permitted.
+- **No Test Files**: Do not create automated test files. Manual testing will be performed for application flow validation.
+- **Real Integration**: Focus on real integration with existing systems and databases rather than simulated environments.
+- **No Random Files**: Do not create random fix files, debug files, or temporary files during development. Keep the codebase clean and organized.
+- **Console Logging Only**: Use console.log() for debugging purposes only. Do not create separate debug utilities, logging frameworks, or debug files.
+- **Minimal File Creation**: Only create files that are explicitly required for the feature implementation. Avoid creating helper files, utility files, or configuration files unless absolutely necessary.
+
+### Code Quality Standards
+- Follow existing code patterns and conventions in the QRMFG portal
+- Maintain clean, readable code without unnecessary abstractions
+- Use direct implementations rather than over-engineered solutions
+- Keep debugging simple and temporary using only console.log statements
 
 ## Security Considerations
 
