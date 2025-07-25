@@ -1,93 +1,105 @@
 import React, { useState, useEffect } from 'react';
 import { Typography, Table, Tag, Button, message } from 'antd';
-import axios from 'axios';
 import { apiRequest } from '../api/api';
 
 const { Title } = Typography;
 
 const PendingTasks = () => {
-  const [tasks, setTasks] = useState([]);
+  const [workflows, setWorkflows] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchTasks = async () => {
+  const fetchWorkflows = async () => {
     setLoading(true);
     try {
-      const response = await apiRequest('/tasks/pending');
-      setTasks(response);
+      const response = await apiRequest('/workflows/pending');
+      setWorkflows(response);
     } catch (error) {
-      message.error('Failed to fetch pending tasks');
+      message.error('Failed to fetch pending workflows');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchTasks();
+    fetchWorkflows();
   }, []);
 
   const columns = [
     {
-      title: 'Task ID',
+      title: 'Workflow ID',
       dataIndex: 'id',
       key: 'id',
     },
     {
-      title: 'Description',
-      dataIndex: 'description',
-      key: 'description',
+      title: 'Material Code',
+      dataIndex: 'materialCode',
+      key: 'materialCode',
     },
     {
-      title: 'Priority',
-      dataIndex: 'priority',
-      key: 'priority',
-      render: (priority) => (
-        <Tag color={priority === 'HIGH' ? 'red' : priority === 'MEDIUM' ? 'orange' : 'green'}>
-          {priority}
+      title: 'Material Name',
+      dataIndex: 'materialName',
+      key: 'materialName',
+    },
+    {
+      title: 'Plant',
+      dataIndex: 'assignedPlant',
+      key: 'assignedPlant',
+    },
+    {
+      title: 'Days Pending',
+      dataIndex: 'daysPending',
+      key: 'daysPending',
+      render: (days) => (
+        <Tag color={days > 7 ? 'red' : days > 3 ? 'orange' : 'green'}>
+          {days} days
         </Tag>
       ),
     },
     {
-      title: 'Due Date',
-      dataIndex: 'dueDate',
-      key: 'dueDate',
+      title: 'Status',
+      dataIndex: 'currentState',
+      key: 'currentState',
+      render: (state) => (
+        <Tag color={state === 'JVC_PENDING' ? 'orange' : state === 'PLANT_PENDING' ? 'blue' : 'green'}>
+          {state}
+        </Tag>
+      ),
     },
     {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status) => (
-        <Tag color={status === 'PENDING' ? 'orange' : 'green'}>
-          {status}
-        </Tag>
+      title: 'Overdue',
+      dataIndex: 'overdue',
+      key: 'overdue',
+      render: (overdue) => (
+        overdue ? <Tag color="red">OVERDUE</Tag> : <Tag color="green">ON TIME</Tag>
       ),
     },
     {
       title: 'Actions',
       key: 'actions',
       render: (_, record) => (
-        <Button type="primary" onClick={() => handleTaskAction(record.id)}>
-          Process
+        <Button type="primary" onClick={() => handleWorkflowAction(record.id)}>
+          Extend to Plant
         </Button>
       ),
     },
   ];
 
-  const handleTaskAction = async (taskId) => {
+  const handleWorkflowAction = async (workflowId) => {
     try {
-      await apiRequest(`/tasks/${taskId}/process`, { method: 'POST' });
-      message.success('Task processed successfully');
-      fetchTasks();
+      await apiRequest(`/workflows/${workflowId}/extend`, { method: 'PUT' });
+      message.success('Workflow extended successfully');
+      fetchWorkflows();
     } catch (error) {
-      message.error('Failed to process task');
+      message.error('Failed to extend workflow');
     }
   };
 
   return (
     <div>
-      <Title level={2}>Pending Tasks</Title>
+      <Title level={2}>Pending Workflows</Title>
       <Table
         columns={columns}
-        dataSource={tasks}
+        dataSource={workflows}
         rowKey="id"
         loading={loading}
         pagination={{ pageSize: 10 }}

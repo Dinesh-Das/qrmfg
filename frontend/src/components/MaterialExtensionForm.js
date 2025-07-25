@@ -17,7 +17,8 @@ import {
   Badge,
   Descriptions,
   Modal,
-  Result
+  Result,
+  Tag
 } from 'antd';
 import {
   UploadOutlined,
@@ -29,7 +30,10 @@ import {
   HomeOutlined,
   BlockOutlined,
   FileProtectOutlined,
-  RocketOutlined
+  RocketOutlined,
+  ExclamationCircleOutlined,
+  EyeOutlined,
+  DownloadOutlined
 } from '@ant-design/icons';
 import { projectAPI } from '../services/projectAPI';
 import { documentAPI } from '../services/documentAPI';
@@ -94,11 +98,11 @@ const MaterialExtensionFormSimple = ({ onSubmit, loading }) => {
     try {
       setLoadingState('materials', true);
       setMaterials([]);
-      
+
       if (projectCode) {
         const materialData = await projectAPI.getMaterialsByProject(projectCode);
         setMaterials(materialData || []);
-        
+
         if (materialData && materialData.length > 0) {
           message.success(`Loaded ${materialData.length} materials for project ${projectCode}`);
         }
@@ -124,7 +128,7 @@ const MaterialExtensionFormSimple = ({ onSubmit, loading }) => {
       if (plantCode) {
         const blockData = await projectAPI.getBlocksByPlant(plantCode);
         setBlocks(blockData || []);
-        
+
         if (blockData && blockData.length > 0) {
           message.success(`Loaded ${blockData.length} blocks for plant ${plantCode}`);
         }
@@ -139,7 +143,7 @@ const MaterialExtensionFormSimple = ({ onSubmit, loading }) => {
 
   const handleMaterialChange = async (materialCode) => {
     const projectCode = form.getFieldValue('projectCode');
-    
+
     if (projectCode && materialCode) {
       await checkForReusableDocuments(projectCode, materialCode);
     }
@@ -154,7 +158,7 @@ const MaterialExtensionFormSimple = ({ onSubmit, loading }) => {
         setReusableDocuments(reusableDocs);
         setShowReusableDocuments(true);
         setSelectedReusableDocuments(reusableDocs.map(doc => doc.id));
-        
+
         message.success(`Found ${reusableDocs.length} reusable document(s) for ${projectCode}/${materialCode}`);
       } else {
         setReusableDocuments([]);
@@ -195,7 +199,7 @@ const MaterialExtensionFormSimple = ({ onSubmit, loading }) => {
 
     const validFiles = validatedFileList.filter(f => f.status === 'done').length;
     const errorFiles = validatedFileList.filter(f => f.status === 'error').length;
-    
+
     if (errorFiles > 0) {
       message.warning(`${errorFiles} file(s) have validation errors. Please check file types and sizes.`);
     } else if (validFiles > 0) {
@@ -207,7 +211,7 @@ const MaterialExtensionFormSimple = ({ onSubmit, loading }) => {
     try {
       // Basic validation
       const totalDocs = fileList.filter(f => f.status === 'done').length + selectedReusableDocuments.length;
-      
+
       if (!values.projectCode || !values.materialCode || !values.plantCode || !values.blockId) {
         message.error('Please fill in all required fields');
         return;
@@ -222,7 +226,7 @@ const MaterialExtensionFormSimple = ({ onSubmit, loading }) => {
       const selectedMaterial = materials.find(m => m.value === values.materialCode);
       const selectedPlant = plants.find(p => p.value === values.plantCode);
       const selectedBlock = blocks.find(b => b.value === values.blockId);
-      
+
       Modal.confirm({
         title: (
           <Space>
@@ -230,7 +234,12 @@ const MaterialExtensionFormSimple = ({ onSubmit, loading }) => {
             <span>Confirm Material Extension Submission</span>
           </Space>
         ),
-        width: 600,
+        width: 800,
+        style: { top: 80 },
+        bodyStyle: {
+          minHeight: '450px',
+          padding: '24px'
+        },
         content: (
           <div>
             <Alert
@@ -240,7 +249,7 @@ const MaterialExtensionFormSimple = ({ onSubmit, loading }) => {
               showIcon
               style={{ marginBottom: 16 }}
             />
-            
+
             <Descriptions bordered size="small" column={2}>
               <Descriptions.Item label="Project Code" span={1}>
                 <Space>
@@ -266,7 +275,7 @@ const MaterialExtensionFormSimple = ({ onSubmit, loading }) => {
                   <Text strong>{values.blockId}</Text>
                 </Space>
               </Descriptions.Item>
-              <Descriptions.Item label="Total Documents" span={2}>
+              <Descriptions.Item label="Documents Summary" span={2}>
                 <Space>
                   <FileProtectOutlined style={{ color: '#13c2c2' }} />
                   <Badge count={totalDocs} style={{ backgroundColor: totalDocs > 0 ? '#52c41a' : '#d9d9d9' }} />
@@ -276,6 +285,109 @@ const MaterialExtensionFormSimple = ({ onSubmit, loading }) => {
                 </Space>
               </Descriptions.Item>
             </Descriptions>
+
+            {/* Document Details Section */}
+            {totalDocs > 0 && (
+              <div style={{ marginTop: 20 }}>
+                {fileList.filter(f => f.status === 'done').length > 0 && (
+                  <div style={{ marginBottom: 16 }}>
+                    <Text strong style={{ color: '#1890ff', marginBottom: 8, display: 'block' }}>
+                      📎 New Documents ({fileList.filter(f => f.status === 'done').length})
+                    </Text>
+                    <List
+                      size="small"
+                      bordered
+                      dataSource={fileList.filter(f => f.status === 'done')}
+                      renderItem={(file) => (
+                        <List.Item
+                          actions={[
+                            <Button
+                              type="link"
+                              size="small"
+                              icon={<DownloadOutlined />}
+                              onClick={() => {
+                                // Create a temporary URL for downloading the file
+                                const url = URL.createObjectURL(file.originFileObj || file);
+                                const link = document.createElement('a');
+                                link.href = url;
+                                link.download = file.name;
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                                URL.revokeObjectURL(url);
+                              }}
+                            >
+                              Download
+                            </Button>
+                          ]}
+                        >
+                          <List.Item.Meta
+                            avatar={<FileTextOutlined style={{ color: '#52c41a' }} />}
+                            title={file.name}
+                            description={`Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`}
+                          />
+                        </List.Item>
+                      )}
+                    />
+                  </div>
+                )}
+
+                {selectedReusableDocuments.length > 0 && (
+                  <div>
+                    <Text strong style={{ color: '#fa8c16', marginBottom: 8, display: 'block' }}>
+                      🔄 Reused Documents ({selectedReusableDocuments.length})
+                    </Text>
+                    <List
+                      size="small"
+                      bordered
+                      dataSource={reusableDocuments.filter(doc => selectedReusableDocuments.includes(doc.id))}
+                      renderItem={(doc) => (
+                        <List.Item
+                          actions={[
+                            <Button
+                              type="link"
+                              size="small"
+                              icon={<DownloadOutlined />}
+                              onClick={async () => {
+                                try {
+                                  const blob = await documentAPI.downloadDocument(doc.id);
+                                  const url = window.URL.createObjectURL(blob);
+                                  const link = document.createElement('a');
+                                  link.href = url;
+                                  link.download = doc.originalFileName || `document_${doc.id}`;
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  document.body.removeChild(link);
+                                  window.URL.revokeObjectURL(url);
+                                  message.success(`Downloaded ${doc.originalFileName}`);
+                                } catch (error) {
+                                  console.error('Error downloading document:', error);
+                                  message.error('Failed to download document');
+                                }
+                              }}
+                            >
+                              Download
+                            </Button>
+                          ]}
+                        >
+                          <List.Item.Meta
+                            avatar={<FileTextOutlined style={{ color: '#fa8c16' }} />}
+                            title={doc.originalFileName}
+                            description={
+                              <Space split={<span style={{ color: '#d9d9d9' }}>|</span>}>
+                                <Text type="secondary">Size: {(doc.fileSize / 1024 / 1024).toFixed(2)} MB</Text>
+                                <Text type="secondary">From: {doc.projectCode}/{doc.materialCode}</Text>
+                                <Tag color="orange" size="small">Reused</Tag>
+                              </Space>
+                            }
+                          />
+                        </List.Item>
+                      )}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ),
         onOk: () => {
@@ -295,25 +407,114 @@ const MaterialExtensionFormSimple = ({ onSubmit, loading }) => {
 
             try {
               const result = await onSubmit(submissionData);
-              
+
               // Check if it's a duplicate workflow
               if (result && result.isDuplicate) {
-                // Show duplicate workflow modal popup
+                const existingWorkflow = result.existingWorkflow;
+
+                // Show enhanced duplicate workflow modal popup
                 Modal.warning({
-                  title: 'Duplicate Workflow Detected',
-                  content: (
-                    <div>
-                      <p>A workflow already exists for this combination:</p>
-                      <p><strong>Project:</strong> {values.projectCode}</p>
-                      <p><strong>Material:</strong> {values.materialCode}</p>
-                      <p><strong>Plant:</strong> {values.plantCode}</p>
-                      <p><strong>Block:</strong> {values.blockId}</p>
-                      <p style={{ marginTop: 16, color: '#666' }}>
-                        Please check the "Pending Extensions" tab or use different parameters.
-                      </p>
+                  title: (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <ExclamationCircleOutlined style={{ color: '#faad14', fontSize: '20px' }} />
+                      <span>Duplicate Workflow Detected</span>
                     </div>
                   ),
-                  okText: 'Understood',
+                  width: 800,
+                  style: { top: 100 },
+                  bodyStyle: {
+                    minHeight: '400px',
+                    padding: '24px'
+                  },
+                  content: (
+                    <div style={{ padding: '16px 0' }}>
+                      <Alert
+                        message="Workflow Already Exists"
+                        description="A workflow with the same parameters is already in the system."
+                        type="warning"
+                        showIcon
+                        style={{ marginBottom: 20 }}
+                      />
+
+                      <Descriptions
+                        title="Submitted Parameters"
+                        bordered
+                        size="small"
+                        column={2}
+                        style={{ marginBottom: 20 }}
+                      >
+                        <Descriptions.Item label="Project Code" span={1}>
+                          <Tag color="blue">{values.projectCode}</Tag>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Material Code" span={1}>
+                          <Tag color="green">{values.materialCode}</Tag>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Plant Code" span={1}>
+                          <Tag color="orange">{values.plantCode}</Tag>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Block ID" span={1}>
+                          <Tag color="purple">{values.blockId}</Tag>
+                        </Descriptions.Item>
+                      </Descriptions>
+
+                      {existingWorkflow && (
+                        <Descriptions
+                          title="Existing Workflow Details"
+                          bordered
+                          size="small"
+                          column={2}
+                          style={{ marginBottom: 20 }}
+                        >
+                          <Descriptions.Item label="Workflow ID" span={1}>
+                            <Tag color="red">#{existingWorkflow.id}</Tag>
+                          </Descriptions.Item>
+                          <Descriptions.Item label="Current State" span={1}>
+                            <Tag color="processing">
+                              {existingWorkflow.state?.replace('_', ' ') || 'PENDING'}
+                            </Tag>
+                          </Descriptions.Item>
+                          <Descriptions.Item label="Created Date" span={1}>
+                            {existingWorkflow.createdAt ?
+                              new Date(existingWorkflow.createdAt).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              }) : 'N/A'
+                            }
+                          </Descriptions.Item>
+                          <Descriptions.Item label="Initiated By" span={1}>
+                            {existingWorkflow.initiatedBy || 'Unknown'}
+                          </Descriptions.Item>
+                          {existingWorkflow.documentCount > 0 && (
+                            <Descriptions.Item label="Documents" span={2}>
+                              <Badge count={existingWorkflow.documentCount} style={{ backgroundColor: '#52c41a' }} />
+                              <span style={{ marginLeft: 8 }}>files attached</span>
+                            </Descriptions.Item>
+                          )}
+                        </Descriptions>
+                      )}
+
+                      <Alert
+                        message="Next Steps"
+                        description={
+                          <div>
+                            <p style={{ margin: '8px 0' }}>• Check the <strong>"Pending Extensions"</strong> tab to view the existing workflow</p>
+                            <p style={{ margin: '8px 0' }}>• Use different parameters if you need to create a new workflow</p>
+                            <p style={{ margin: '8px 0' }}>• Contact the workflow initiator if you need to modify the existing workflow</p>
+                          </div>
+                        }
+                        type="info"
+                        showIcon
+                      />
+                    </div>
+                  ),
+                  okText: 'Got It',
+                  okButtonProps: {
+                    size: 'large',
+                    type: 'primary'
+                  },
                   onOk: () => {
                     // Reset form after user acknowledges
                     resetForm();
@@ -484,7 +685,7 @@ const MaterialExtensionFormSimple = ({ onSubmit, loading }) => {
 
         {/* Reusable Documents Section */}
         {showReusableDocuments && (
-          <Card 
+          <Card
             title={
               <Space>
                 <FileTextOutlined style={{ color: '#1890ff' }} />
@@ -553,9 +754,9 @@ const MaterialExtensionFormSimple = ({ onSubmit, loading }) => {
         {/* Submit Button */}
         <Form.Item style={{ marginTop: 24 }}>
           <Space>
-            <Button 
-              type="primary" 
-              htmlType="submit" 
+            <Button
+              type="primary"
+              htmlType="submit"
               loading={loading}
               size="large"
               icon={<RocketOutlined />}
