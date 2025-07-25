@@ -77,6 +77,9 @@ export const workflowAPI = {
   isReadyForCompletion: (id) =>
     apiRequest(`/workflows/${id}/ready-for-completion`),
   
+  checkWorkflowExists: (projectCode, materialCode, plantCode, blockId) =>
+    apiRequest(`/workflows/check-exists?projectCode=${encodeURIComponent(projectCode)}&materialCode=${encodeURIComponent(materialCode)}&plantCode=${encodeURIComponent(plantCode)}&blockId=${encodeURIComponent(blockId)}`),
+  
   // Workflow statistics
   getWorkflowStats: (timeRange) => 
     apiRequest(`/workflows/stats?range=${timeRange}`),

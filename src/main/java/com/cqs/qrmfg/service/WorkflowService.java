@@ -58,4 +58,8 @@ public interface WorkflowService {
     void validateWorkflowCompletion(MaterialWorkflow workflow);
     boolean isWorkflowReadyForCompletion(Long workflowId);
     boolean isWorkflowReadyForCompletion(String materialCode);
+    
+    // Duplicate checking
+    Optional<MaterialWorkflow> findExistingWorkflow(String projectCode, String materialCode, String plantCode, String blockId);
+    boolean workflowExists(String projectCode, String materialCode, String plantCode, String blockId);
 }

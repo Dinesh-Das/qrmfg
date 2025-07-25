@@ -30,6 +30,7 @@ import QueryInbox from '../components/QueryInbox';
 import QueryHistoryTracker from '../components/QueryHistoryTracker';
 import MaterialExtensionForm from '../components/MaterialExtensionForm';
 import PendingExtensionsList from '../components/PendingExtensionsList';
+import DuplicateWorkflowAlert from '../components/DuplicateWorkflowAlert';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
@@ -37,9 +38,12 @@ const { TabPane } = Tabs;
 const JVCView = () => {
   const [loading, setLoading] = useState(false);
   const [completedWorkflows, setCompletedWorkflows] = useState([]);
+  const [duplicateWorkflow, setDuplicateWorkflow] = useState(null);
+  const [showDuplicateAlert, setShowDuplicateAlert] = useState(false);
 
   const [activeTab, setActiveTab] = useState('initiate');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [formKey, setFormKey] = useState(0);
   const [queryStats, setQueryStats] = useState({
     totalQueries: 0,
     openQueries: 0,
@@ -104,9 +108,34 @@ const JVCView = () => {
     }
   };
 
+  const checkForExistingWorkflow = async (projectCode, materialCode, plantCode, blockId) => {
+    try {
+      console.log('Checking for existing workflow:', { projectCode, materialCode, plantCode, blockId });
+      const response = await workflowAPI.checkWorkflowExists(projectCode, materialCode, plantCode, blockId);
+      console.log('Check workflow response:', response);
+      return response.exists ? response.workflow : null;
+    } catch (error) {
+      console.error('Error checking for existing workflow:', error);
+      return null;
+    }
+  };
+
   const handleInitiateWorkflow = async (formData) => {
     try {
       setLoading(true);
+      
+      // Check for existing workflow first
+      const existingWorkflow = await checkForExistingWorkflow(
+        formData.projectCode,
+        formData.materialCode,
+        formData.plantCode,
+        formData.blockId
+      );
+      
+      if (existingWorkflow) {
+        // Return a special object to indicate duplicate instead of throwing error
+        return { isDuplicate: true, existingWorkflow, formData };
+      }
       
       // Create the workflow first
       const workflowData = {
@@ -161,10 +190,69 @@ const JVCView = () => {
       loadQueryStats();
     } catch (error) {
       console.error('Error initiating workflow:', error);
-      message.error({
-        content: `Failed to initiate workflow for ${formData.projectCode}/${formData.materialCode}. Please try again.`,
-        duration: 5
-      });
+      
+      // Handle duplicate workflow case (shouldn't reach here with new implementation)
+      if (error.message === 'Duplicate workflow detected') {
+        // This shouldn't happen with the new implementation, but just in case
+        console.warn('Unexpected duplicate workflow error in catch block');
+        return;
+      }
+      
+      // Handle duplicate workflow error from backend
+      if (error.message && error.message.includes('Workflow already exists')) {
+        // Try to fetch the existing workflow details for the alert
+        try {
+          const existingWorkflow = await checkForExistingWorkflow(
+            formData.projectCode,
+            formData.materialCode,
+            formData.plantCode,
+            formData.blockId
+          );
+          
+          if (existingWorkflow) {
+            setDuplicateWorkflow({ workflow: existingWorkflow, formData });
+            setShowDuplicateAlert(true);
+          } else {
+            // Fallback to error message if we can't fetch workflow details
+            message.error({
+              content: (
+                <div>
+                  <div style={{ fontWeight: 'bold', marginBottom: 8 }}>
+                    Duplicate Workflow Detected
+                  </div>
+                  <div style={{ marginBottom: 8 }}>
+                    A workflow already exists for this combination:
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#666' }}>
+                    Project: {formData.projectCode} | Material: {formData.materialCode} | Plant: {formData.plantCode} | Block: {formData.blockId}
+                  </div>
+                  <div style={{ marginTop: 8, fontSize: '12px' }}>
+                    Please check the "Pending Extensions" tab or use different parameters.
+                  </div>
+                </div>
+              ),
+              duration: 8
+            });
+            
+            // Switch to pending tab to show existing workflows
+            setActiveTab('pending');
+          }
+        } catch (fetchError) {
+          console.error('Error fetching existing workflow details:', fetchError);
+          // Fallback to error message
+          message.error({
+            content: `Duplicate workflow detected for ${formData.projectCode}/${formData.materialCode}. Please check the "Pending Extensions" tab.`,
+            duration: 5
+          });
+          setActiveTab('pending');
+        }
+      } else {
+        // Generic error handling for other types of errors
+        message.error({
+          content: `Failed to initiate workflow for ${formData.projectCode}/${formData.materialCode}. ${error.message || 'Please try again.'}`,
+          duration: 5
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -205,6 +293,22 @@ const JVCView = () => {
     loadCompletedWorkflows();
     loadQueryStats();
     setRefreshTrigger(prev => prev + 1);
+  };
+
+  const handleViewExistingWorkflow = (workflow) => {
+    setShowDuplicateAlert(false);
+    setDuplicateWorkflow(null);
+    setActiveTab('pending');
+    // Reset the form by changing its key, which forces a re-render
+    setFormKey(prev => prev + 1);
+    message.info(`Switched to Pending Extensions tab. Look for workflow #${workflow.id}.`);
+  };
+
+  const handleCloseDuplicateAlert = () => {
+    setShowDuplicateAlert(false);
+    setDuplicateWorkflow(null);
+    // Reset the form by changing its key, which forces a re-render
+    setFormKey(prev => prev + 1);
   };
 
 
@@ -259,6 +363,8 @@ const JVCView = () => {
       
       <Divider />
       
+
+      
       <Tabs 
         activeKey={activeTab} 
         onChange={setActiveTab}
@@ -278,6 +384,7 @@ const JVCView = () => {
           <Row gutter={24}>
             <Col span={18}>
               <MaterialExtensionForm 
+                key={formKey}
                 onSubmit={handleInitiateWorkflow}
                 loading={loading}
               />

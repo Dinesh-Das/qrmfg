@@ -472,4 +472,26 @@ public class WorkflowServiceImpl implements WorkflowService {
             return false;
         }
     }
+    
+    // Duplicate checking methods
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<MaterialWorkflow> findExistingWorkflow(String projectCode, String materialCode, String plantCode, String blockId) {
+        Optional<MaterialWorkflow> workflow = workflowRepository.findByProjectCodeAndMaterialCodeAndPlantCodeAndBlockIdWithQueries(
+            projectCode, materialCode, plantCode, blockId);
+        
+        // Initialize documents collection within transaction if workflow exists
+        if (workflow.isPresent()) {
+            workflow.get().getDocuments().size(); // Trigger lazy loading
+        }
+        
+        return workflow;
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public boolean workflowExists(String projectCode, String materialCode, String plantCode, String blockId) {
+        return workflowRepository.existsByProjectCodeAndMaterialCodeAndPlantCodeAndBlockId(
+            projectCode, materialCode, plantCode, blockId);
+    }
 }

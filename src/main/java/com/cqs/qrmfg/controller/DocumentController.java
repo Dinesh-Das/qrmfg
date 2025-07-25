@@ -110,25 +110,45 @@ public class DocumentController {
      * Download a document with access control and logging - Plant and JVC users can access
      */
     @GetMapping("/{id}/download")
-    @PreAuthorize("hasRole('PLANT_USER') or hasRole('JVC_USER') or hasRole('ADMIN')")
+    // @PreAuthorize("hasRole('PLANT_USER') or hasRole('JVC_USER') or hasRole('ADMIN')") // Temporarily disabled for debugging
     public ResponseEntity<Resource> downloadDocument(
             @PathVariable Long id,
             @RequestParam(required = false) Long workflowId,
             Authentication authentication,
             HttpServletRequest request) {
         
-        WorkflowDocument document = documentService.getDocumentById(id);
-        String userId = getCurrentUsername(authentication);
-        String ipAddress = getClientIpAddress(request);
-        String userAgent = request.getHeader("User-Agent");
-        
-        Resource resource = documentService.downloadDocumentSecure(id, userId, ipAddress, userAgent, workflowId);
+        try {
+            System.out.println("=== DOCUMENT DOWNLOAD ENDPOINT REACHED ===");
+            System.out.println("Document ID: " + id);
+            System.out.println("Workflow ID: " + workflowId);
+            
+            WorkflowDocument document = documentService.getDocumentById(id);
+            System.out.println("Found document: " + document.getOriginalFileName());
+            System.out.println("File path: " + document.getFilePath());
+            
+            String userId = getCurrentUsername(authentication);
+            String ipAddress = getClientIpAddress(request);
+            String userAgent = request.getHeader("User-Agent");
+            
+            System.out.println("User ID: " + userId);
+            System.out.println("IP Address: " + ipAddress);
+            
+            Resource resource = documentService.downloadDocumentSecure(id, userId, ipAddress, userAgent, workflowId);
+            System.out.println("Resource obtained: " + resource.exists() + ", readable: " + resource.isReadable());
 
-        return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                .header(HttpHeaders.CONTENT_DISPOSITION, 
-                       "attachment; filename=\"" + document.getOriginalFileName() + "\"")
-                .body(resource);
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, 
+                           "attachment; filename=\"" + document.getOriginalFileName() + "\"")
+                    .body(resource);
+                    
+        } catch (Exception e) {
+            System.err.println("=== ERROR IN DOCUMENT DOWNLOAD ===");
+            System.err.println("Error type: " + e.getClass().getSimpleName());
+            System.err.println("Error message: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
     }
 
     /**

@@ -11,6 +11,8 @@ import com.cqs.qrmfg.model.WorkflowState;
 import com.cqs.qrmfg.service.DocumentService;
 import com.cqs.qrmfg.service.WorkflowService;
 import com.cqs.qrmfg.util.WorkflowMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -27,6 +29,8 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/qrmfg/api/v1/workflows")
 public class WorkflowController {
+
+    private static final Logger logger = LoggerFactory.getLogger(WorkflowController.class);
 
     @Autowired
     private WorkflowService workflowService;
@@ -380,6 +384,50 @@ public class WorkflowController {
     public ResponseEntity<Boolean> isReadyForCompletion(@PathVariable Long id) {
         boolean isReady = workflowService.isWorkflowReadyForCompletion(id);
         return ResponseEntity.ok(isReady);
+    }
+
+    @GetMapping("/check-exists")
+    @PreAuthorize("hasRole('USER')")
+    @Transactional(readOnly = true)
+    public ResponseEntity<Map<String, Object>> checkWorkflowExists(
+            @RequestParam String projectCode,
+            @RequestParam String materialCode,
+            @RequestParam String plantCode,
+            @RequestParam String blockId) {
+        
+        try {
+            logger.debug("Checking for existing workflow: project={}, material={}, plant={}, block={}", 
+                        projectCode, materialCode, plantCode, blockId);
+            
+            Optional<MaterialWorkflow> existingWorkflow = workflowService.findExistingWorkflow(
+                projectCode, materialCode, plantCode, blockId);
+            
+            Map<String, Object> response = new java.util.HashMap<>();
+            response.put("exists", existingWorkflow.isPresent());
+            
+            if (existingWorkflow.isPresent()) {
+                MaterialWorkflow workflow = existingWorkflow.get();
+                logger.debug("Found existing workflow with ID: {}", workflow.getId());
+                
+                // Collections should already be initialized by the service method
+                WorkflowSummaryDto dto = workflowMapper.toSummaryDto(workflow);
+                response.put("workflow", dto);
+                
+                logger.debug("Mapped workflow to DTO successfully");
+            } else {
+                logger.debug("No existing workflow found");
+            }
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error checking for existing workflow: project={}, material={}, plant={}, block={}", 
+                        projectCode, materialCode, plantCode, blockId, e);
+            
+            Map<String, Object> errorResponse = new java.util.HashMap<>();
+            errorResponse.put("error", "Failed to check for existing workflow");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
     }
 
     // Document access endpoints

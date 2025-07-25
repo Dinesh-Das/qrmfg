@@ -17,6 +17,14 @@ public interface WorkflowRepository extends JpaRepository<MaterialWorkflow, Long
     // Basic finders
     Optional<MaterialWorkflow> findByProjectCodeAndMaterialCodeAndPlantCodeAndBlockId(
         String projectCode, String materialCode, String plantCode, String blockId);
+    
+    // Eager loading version for duplicate check
+    @Query("SELECT DISTINCT w FROM MaterialWorkflow w LEFT JOIN FETCH w.queries WHERE w.projectCode = :projectCode AND w.materialCode = :materialCode AND w.plantCode = :plantCode AND w.blockId = :blockId")
+    Optional<MaterialWorkflow> findByProjectCodeAndMaterialCodeAndPlantCodeAndBlockIdWithQueries(
+        @Param("projectCode") String projectCode, 
+        @Param("materialCode") String materialCode, 
+        @Param("plantCode") String plantCode, 
+        @Param("blockId") String blockId);
     List<MaterialWorkflow> findByState(WorkflowState state);
     List<MaterialWorkflow> findByPlantCode(String plantCode);
     List<MaterialWorkflow> findByInitiatedBy(String initiatedBy);

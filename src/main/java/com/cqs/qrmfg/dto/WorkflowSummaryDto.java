@@ -189,4 +189,22 @@ public class WorkflowSummaryDto {
     public void setDocumentCount(long documentCount) {
         this.documentCount = documentCount;
     }
+
+    // Alias for frontend compatibility
+    public WorkflowState getState() {
+        return currentState;
+    }
+
+    public void setState(WorkflowState state) {
+        this.currentState = state;
+    }
+
+    // Alias for frontend compatibility
+    public long getOpenQueriesCount() {
+        return openQueries;
+    }
+
+    public void setOpenQueriesCount(long openQueriesCount) {
+        this.openQueries = openQueriesCount;
+    }
 }

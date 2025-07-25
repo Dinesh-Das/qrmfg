@@ -28,10 +28,12 @@ import {
   ExclamationCircleOutlined,
   FileTextOutlined,
   EyeOutlined,
-  FolderOpenOutlined
+  FolderOpenOutlined,
+  PlusOutlined
 } from '@ant-design/icons';
 import { workflowAPI } from '../services/workflowAPI';
 import { documentAPI } from '../services/documentAPI';
+import DocumentUploadSection from './DocumentUploadSection';
 
 const { Text, Title } = Typography;
 const { Option } = Select;
@@ -45,6 +47,7 @@ const PendingExtensionsList = ({ onExtendToPlant, refreshTrigger }) => {
   const [selectedWorkflow, setSelectedWorkflow] = useState(null);
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [workflowDocuments, setWorkflowDocuments] = useState([]);
+  const [showUploadSection, setShowUploadSection] = useState(false);
   const [filters, setFilters] = useState({
     search: '',
     projectCode: '',
@@ -226,20 +229,28 @@ const PendingExtensionsList = ({ onExtendToPlant, refreshTrigger }) => {
     }
   };
 
-  const downloadDocument = async (document) => {
+  const downloadDocument = async (documentItem) => {
     try {
-      const blob = await documentAPI.downloadDocument(document.id);
+      console.log('Downloading document:', documentItem.id, documentItem.originalFileName);
+      const blob = await documentAPI.downloadDocument(documentItem.id);
+
+      if (!blob || blob.size === 0) {
+        throw new Error('Downloaded file is empty or invalid');
+      }
+
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = document.originalFileName;
+      link.download = documentItem.originalFileName || `document_${documentItem.id}`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
+
+      message.success(`Downloaded ${documentItem.originalFileName}`);
     } catch (error) {
       console.error('Error downloading document:', error);
-      message.error('Failed to download document');
+      message.error(`Failed to download document: ${error.message}`);
     }
   };
 
@@ -324,11 +335,16 @@ const PendingExtensionsList = ({ onExtendToPlant, refreshTrigger }) => {
         <Space>
           <Badge
             count={record.documentCount || 0}
-            style={{ backgroundColor: record.documentCount > 0 ? '#52c41a' : '#d9d9d9' }}
+            style={{ backgroundColor: record.documentCount > 0 ? '#52c41a' : '#ff4d4f' }}
           />
-          <Text type="secondary">
+          <Text type={record.documentCount > 0 ? 'secondary' : 'warning'}>
             {record.documentCount > 0 ? 'files' : 'none'}
           </Text>
+          {(!record.documentCount || record.documentCount === 0) && (
+            <Tooltip title="No documents uploaded. Click 'View Details' to upload documents.">
+              <ExclamationCircleOutlined style={{ color: '#fa8c16' }} />
+            </Tooltip>
+          )}
         </Space>
       ),
       sorter: (a, b) => (a.documentCount || 0) - (b.documentCount || 0),
@@ -763,22 +779,50 @@ const PendingExtensionsList = ({ onExtendToPlant, refreshTrigger }) => {
           setDetailsModalVisible(false);
           setSelectedWorkflow(null);
           setWorkflowDocuments([]);
+          setShowUploadSection(false);
         }}
         footer={[
-          <Button key="close" onClick={() => setDetailsModalVisible(false)}>
+          <Button key="close" onClick={() => {
+            setDetailsModalVisible(false);
+            setShowUploadSection(false);
+          }}>
             Close
           </Button>,
-          <Button
-            key="extend"
-            type="primary"
-            icon={<SendOutlined />}
-            onClick={() => {
-              handleExtendWorkflow(selectedWorkflow);
-              setDetailsModalVisible(false);
-            }}
-          >
-            Extend to Plant
-          </Button>
+          workflowDocuments.length === 0 ? (
+            <Button
+              key="extend-warning"
+              type="default"
+              icon={<ExclamationCircleOutlined />}
+              onClick={() => {
+                Modal.confirm({
+                  title: 'Extend Workflow Without Documents?',
+                  content: 'This workflow has no documents attached. Are you sure you want to extend it to the plant? Consider uploading documents first.',
+                  okText: 'Extend Anyway',
+                  cancelText: 'Cancel',
+                  onOk: () => {
+                    handleExtendWorkflow(selectedWorkflow);
+                    setDetailsModalVisible(false);
+                    setShowUploadSection(false);
+                  }
+                });
+              }}
+            >
+              Extend to Plant (No Docs)
+            </Button>
+          ) : (
+            <Button
+              key="extend"
+              type="primary"
+              icon={<SendOutlined />}
+              onClick={() => {
+                handleExtendWorkflow(selectedWorkflow);
+                setDetailsModalVisible(false);
+                setShowUploadSection(false);
+              }}
+            >
+              Extend to Plant
+            </Button>
+          )
         ]}
         width={800}
       >
@@ -820,54 +864,84 @@ const PendingExtensionsList = ({ onExtendToPlant, refreshTrigger }) => {
 
             <Divider />
 
-            <Title level={5}>
-              <FileTextOutlined /> Documents ({workflowDocuments.length})
-            </Title>
-
-            {workflowDocuments.length > 0 ? (
-              <List
-                dataSource={workflowDocuments}
-                renderItem={document => (
-                  <List.Item
-                    actions={[
-                      <Button
-                        type="link"
-                        icon={<EyeOutlined />}
-                        onClick={() => downloadDocument(document)}
-                        size="small"
-                      >
-                        Download
-                      </Button>
-                    ]}
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <Row justify="space-between" align="middle">
+                <Col>
+                  <Title level={5} style={{ margin: 0 }}>
+                    <FileTextOutlined /> Documents ({workflowDocuments.length})
+                  </Title>
+                </Col>
+                <Col>
+                  <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    size="small"
+                    onClick={() => setShowUploadSection(!showUploadSection)}
                   >
-                    <List.Item.Meta
-                      title={
-                        <Space>
-                          <Text strong>{document.originalFileName}</Text>
-                          <Tag color="blue">{document.fileType?.toUpperCase()}</Tag>
-                          {document.isReused && <Tag color="green">Reused</Tag>}
-                        </Space>
-                      }
-                      description={
-                        <Space split={<Divider type="vertical" />}>
-                          <Text type="secondary">
-                            Size: {(document.fileSize / 1024 / 1024).toFixed(2)} MB
-                          </Text>
-                          <Text type="secondary">
-                            Uploaded: {new Date(document.uploadedAt).toLocaleDateString()}
-                          </Text>
-                          <Text type="secondary">
-                            By: {document.uploadedBy}
-                          </Text>
-                        </Space>
-                      }
-                    />
-                  </List.Item>
-                )}
-              />
-            ) : (
-              <Text type="secondary">No documents uploaded</Text>
-            )}
+                    {showUploadSection ? 'Hide Upload' : 'Add Documents'}
+                  </Button>
+                </Col>
+              </Row>
+
+              {workflowDocuments.length > 0 && (
+                <List
+                  dataSource={workflowDocuments}
+                  renderItem={docItem => (
+                    <List.Item
+                      actions={[
+                        <Button
+                          type="link"
+                          icon={<EyeOutlined />}
+                          onClick={() => downloadDocument(docItem)}
+                          size="small"
+                        >
+                          Download
+                        </Button>
+                      ]}
+                    >
+                      <List.Item.Meta
+                        title={
+                          <Space>
+                            <Text strong>{docItem.originalFileName}</Text>
+                            <Tag color="blue">{docItem.fileType?.toUpperCase()}</Tag>
+                            {docItem.isReused && <Tag color="green">Reused</Tag>}
+                          </Space>
+                        }
+                        description={
+                          <Space split={<Divider type="vertical" />}>
+                            <Text type="secondary">
+                              Size: {(docItem.fileSize / 1024 / 1024).toFixed(2)} MB
+                            </Text>
+                            <Text type="secondary">
+                              Uploaded: {new Date(docItem.uploadedAt).toLocaleDateString()}
+                            </Text>
+                            <Text type="secondary">
+                              By: {docItem.uploadedBy}
+                            </Text>
+                          </Space>
+                        }
+                      />
+                    </List.Item>
+                  )}
+                />
+              )}
+
+              {(workflowDocuments.length === 0 || showUploadSection) && (
+                <DocumentUploadSection
+                  workflowId={selectedWorkflow?.id}
+                  projectCode={selectedWorkflow?.projectCode}
+                  materialCode={selectedWorkflow?.materialCode}
+                  onDocumentsUploaded={() => {
+                    // Refresh documents list
+                    handleViewDetails(selectedWorkflow);
+                    // Refresh the main workflow list to update document count
+                    loadPendingWorkflows();
+                    // Hide upload section after successful upload
+                    setShowUploadSection(false);
+                  }}
+                />
+              )}
+            </Space>
           </Space>
         )}
       </Modal>

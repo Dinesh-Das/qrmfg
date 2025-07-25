@@ -278,34 +278,74 @@ const MaterialExtensionFormSimple = ({ onSubmit, loading }) => {
             </Descriptions>
           </div>
         ),
-        onOk: async () => {
-          const submissionData = {
-            ...values,
-            uploadedFiles: fileList.filter(file => file.status === 'done'),
-            reusedDocuments: selectedReusableDocuments,
-            metadata: {
-              totalDocuments: totalDocs,
-              newDocuments: fileList.filter(f => f.status === 'done').length,
-              reusedDocuments: selectedReusableDocuments.length,
-              submittedAt: new Date().toISOString(),
-              formVersion: '3.0-simplified'
+        onOk: () => {
+          return new Promise(async (resolve, reject) => {
+            const submissionData = {
+              ...values,
+              uploadedFiles: fileList.filter(file => file.status === 'done'),
+              reusedDocuments: selectedReusableDocuments,
+              metadata: {
+                totalDocuments: totalDocs,
+                newDocuments: fileList.filter(f => f.status === 'done').length,
+                reusedDocuments: selectedReusableDocuments.length,
+                submittedAt: new Date().toISOString(),
+                formVersion: '3.0-simplified'
+              }
+            };
+
+            try {
+              const result = await onSubmit(submissionData);
+              
+              // Check if it's a duplicate workflow
+              if (result && result.isDuplicate) {
+                // Show duplicate workflow modal popup
+                Modal.warning({
+                  title: 'Duplicate Workflow Detected',
+                  content: (
+                    <div>
+                      <p>A workflow already exists for this combination:</p>
+                      <p><strong>Project:</strong> {values.projectCode}</p>
+                      <p><strong>Material:</strong> {values.materialCode}</p>
+                      <p><strong>Plant:</strong> {values.plantCode}</p>
+                      <p><strong>Block:</strong> {values.blockId}</p>
+                      <p style={{ marginTop: 16, color: '#666' }}>
+                        Please check the "Pending Extensions" tab or use different parameters.
+                      </p>
+                    </div>
+                  ),
+                  okText: 'Understood',
+                  onOk: () => {
+                    // Reset form after user acknowledges
+                    resetForm();
+                  }
+                });
+                // Close the confirmation modal
+                resolve();
+                return;
+              }
+
+              // Only show success modal if onSubmit completed without throwing an error
+              Modal.success({
+                title: 'Material Extension Created Successfully!',
+                content: (
+                  <Result
+                    status="success"
+                    title="Workflow Initiated"
+                    subTitle={`Material extension for ${values.projectCode}/${values.materialCode} has been successfully assigned to plant ${values.plantCode} (Block: ${values.blockId})`}
+                  />
+                )
+              });
+
+              resetForm();
+              resolve();
+            } catch (error) {
+              // Don't show success modal if onSubmit failed
+              console.error('Form submission failed:', error);
+              // For other errors, show error message and keep modal open
+              message.error('Failed to create material extension. Please try again.');
+              reject(error);
             }
-          };
-
-          await onSubmit(submissionData);
-
-          Modal.success({
-            title: 'Material Extension Created Successfully!',
-            content: (
-              <Result
-                status="success"
-                title="Workflow Initiated"
-                subTitle={`Material extension for ${values.projectCode}/${values.materialCode} has been successfully assigned to plant ${values.plantCode} (Block: ${values.blockId})`}
-              />
-            )
           });
-
-          resetForm();
         }
       });
     } catch (error) {

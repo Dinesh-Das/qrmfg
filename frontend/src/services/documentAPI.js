@@ -38,13 +38,66 @@ export const documentAPI = {
     }),
 
   // Document access
-  downloadDocument: (documentId, workflowId = null) =>
-    apiRequest(`/documents/${documentId}/download${workflowId ? `?workflowId=${workflowId}` : ''}`, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/octet-stream'
+  downloadDocument: async (documentId, workflowId = null) => {
+    const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || '/qrmfg/api/v1';
+    const url = `${API_BASE_URL}/documents/${documentId}/download${workflowId ? `?workflowId=${workflowId}` : ''}`;
+    
+    console.log('Downloading document from URL:', url);
+    
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    const headers = {
+      'Accept': 'application/octet-stream'
+    };
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+      console.log('Using auth token for download');
+    } else {
+      console.warn('No auth token found for download');
+    }
+
+    try {
+      console.log('Making download request...');
+      const response = await fetch(url, {
+        method: 'GET',
+        headers
+      });
+
+      console.log('Download response status:', response.status);
+      console.log('Download response headers:', Object.fromEntries(response.headers.entries()));
+
+      if (!response.ok) {
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          // If response is not JSON, try to get text
+          try {
+            const errorText = await response.text();
+            if (errorText) {
+              errorMessage = errorText;
+            }
+          } catch (e2) {
+            // Use default error message
+          }
+        }
+        throw new Error(errorMessage);
       }
-    }).then(response => response.blob()),
+
+      const blob = await response.blob();
+      console.log('Downloaded blob size:', blob.size, 'type:', blob.type);
+      
+      if (blob.size === 0) {
+        throw new Error('Downloaded file is empty');
+      }
+      
+      return blob;
+    } catch (error) {
+      console.error('Document download failed:', error);
+      throw error;
+    }
+  },
 
   getDocumentInfo: (documentId, enhanced = false) =>
     apiRequest(`/documents/${documentId}?enhanced=${enhanced}`),
