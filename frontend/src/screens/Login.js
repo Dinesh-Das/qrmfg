@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Form, Input, Button, Card, Alert, Typography } from "antd";
-import axios from "axios";
+import { apiPost } from "../api/api";
 import { setToken } from "../services/auth";
 import { Link } from "react-router-dom";
 import { notifySuccess, notifyError } from '../services/notify';
@@ -16,9 +16,9 @@ const Login = () => {
     setError("");
     console.log("Form submitted!", values); // Debug: see if form submits
     try {
-      const response = await axios.post("/auth/login", values);
-      if (response.data && response.data.token) {
-        setToken(response.data.token);
+      const response = await apiPost("/auth/login", values);
+      if (response && response.token) {
+        setToken(response.token);
         notifySuccess('Login Successful', 'Welcome!');
         window.location.href = "/qrmfg";
       } else {
@@ -26,14 +26,12 @@ const Login = () => {
         setError("Login failed: No token returned");
       }
     } catch (err) {
-      notifyError('Login Failed', err.response && err.response.data && err.response.data.message
-        ? err.response.data.message
-        : "Invalid username or password");
-      setError(
-        err.response && err.response.data && err.response.data.message
-          ? err.response.data.message
-          : "Invalid username or password"
-      );
+      const errorMessage = err.data && err.data.message
+        ? err.data.message
+        : err.message || "Invalid username or password";
+      
+      notifyError('Login Failed', errorMessage);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -55,14 +53,23 @@ const Login = () => {
             label="Username"
             rules={[{ required: true, message: "Please enter your username" }]}
           >
-            <Input size="large" autoFocus placeholder="Enter your username" />
+            <Input 
+              size="large" 
+              autoFocus 
+              placeholder="Enter your username"
+              autoComplete="username"
+            />
           </Form.Item>
           <Form.Item
             name="password"
             label="Password"
             rules={[{ required: true, message: "Please enter your password" }]}
           >
-            <Input.Password size="large" placeholder="Enter your password" />
+            <Input.Password 
+              size="large" 
+              placeholder="Enter your password"
+              autoComplete="current-password"
+            />
           </Form.Item>
           <Form.Item>
             <Button

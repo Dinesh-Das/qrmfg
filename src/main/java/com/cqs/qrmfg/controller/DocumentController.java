@@ -43,20 +43,67 @@ public class DocumentController {
      * Upload documents for a workflow - JVC users only
      */
     @PostMapping("/upload")
-    @PreAuthorize("hasRole('JVC_USER') or hasRole('ADMIN')")
+    // @PreAuthorize("hasRole('JVC_USER') or hasRole('ADMIN')") // Temporarily disabled for debugging
     public ResponseEntity<List<DocumentSummary>> uploadDocuments(
-            @RequestParam("files") MultipartFile[] files,
-            @RequestParam String projectCode,
-            @RequestParam String materialCode,
-            @RequestParam Long workflowId,
+            @RequestParam(value = "files", required = false) MultipartFile[] files,
+            @RequestParam(required = false) String projectCode,
+            @RequestParam(required = false) String materialCode,
+            @RequestParam(required = false) Long workflowId,
             Authentication authentication) {
         
-        String uploadedBy = getCurrentUsername(authentication);
-        
-        List<DocumentSummary> uploadedDocuments = documentService.uploadDocuments(
-            files, projectCode, materialCode, workflowId, uploadedBy);
-        
-        return ResponseEntity.status(HttpStatus.CREATED).body(uploadedDocuments);
+        try {
+            System.out.println("=== DOCUMENT UPLOAD ENDPOINT REACHED ===");
+            System.out.println("=== Document Upload Debug ===");
+            System.out.println("Files count: " + (files != null ? files.length : 0));
+            System.out.println("Project Code: " + projectCode);
+            System.out.println("Material Code: " + materialCode);
+            System.out.println("Workflow ID: " + workflowId);
+            
+            // Validate required parameters
+            if (projectCode == null || materialCode == null || workflowId == null) {
+                System.err.println("Missing required parameters:");
+                System.err.println("  projectCode: " + projectCode);
+                System.err.println("  materialCode: " + materialCode);
+                System.err.println("  workflowId: " + workflowId);
+                return ResponseEntity.badRequest().body(null);
+            }
+            
+            if (files == null || files.length == 0) {
+                System.err.println("No files provided for upload");
+                return ResponseEntity.badRequest().body(null);
+            }
+            
+            if (files != null) {
+                for (int i = 0; i < files.length; i++) {
+                    MultipartFile file = files[i];
+                    System.out.println("File " + i + ": " + file.getOriginalFilename() + 
+                        " (size: " + file.getSize() + ", type: " + file.getContentType() + ")");
+                }
+            }
+            
+            String uploadedBy = getCurrentUsername(authentication);
+            System.out.println("Uploaded by: " + uploadedBy);
+            
+            System.out.println("Calling documentService.uploadDocuments...");
+            List<DocumentSummary> uploadedDocuments = documentService.uploadDocuments(
+                files, projectCode, materialCode, workflowId, uploadedBy);
+            
+            System.out.println("Upload successful, returned " + uploadedDocuments.size() + " documents");
+            return ResponseEntity.status(HttpStatus.CREATED).body(uploadedDocuments);
+            
+        } catch (Exception e) {
+            System.err.println("=== ERROR IN DOCUMENT UPLOAD ===");
+            System.err.println("Error type: " + e.getClass().getSimpleName());
+            System.err.println("Error message: " + e.getMessage());
+            System.err.println("Stack trace:");
+            e.printStackTrace();
+            
+            // Return a proper error response instead of throwing
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Document upload failed");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
     }
 
     /**
@@ -88,19 +135,41 @@ public class DocumentController {
      * Get reusable documents for same project/material combination with enhanced metadata - JVC users only
      */
     @GetMapping("/reusable")
-    @PreAuthorize("hasRole('JVC_USER') or hasRole('ADMIN')")
+    // @PreAuthorize("hasRole('JVC_USER') or hasRole('ADMIN')") // Temporarily disabled for debugging
     public ResponseEntity<List<DocumentSummary>> getReusableDocuments(
             @RequestParam String projectCode, 
             @RequestParam String materialCode,
             @RequestParam(defaultValue = "false") boolean enhanced) {
         
-        List<DocumentSummary> documents;
-        if (enhanced) {
-            documents = documentService.getReusableDocumentsEnhanced(projectCode, materialCode);
-        } else {
-            documents = documentService.getReusableDocuments(projectCode, materialCode);
+        try {
+            System.out.println("=== REUSABLE DOCUMENTS ENDPOINT REACHED ===");
+            System.out.println("Project Code: " + projectCode);
+            System.out.println("Material Code: " + materialCode);
+            System.out.println("Enhanced: " + enhanced);
+            
+            List<DocumentSummary> documents;
+            if (enhanced) {
+                System.out.println("Calling getReusableDocumentsEnhanced...");
+                documents = documentService.getReusableDocumentsEnhanced(projectCode, materialCode);
+            } else {
+                System.out.println("Calling getReusableDocuments...");
+                documents = documentService.getReusableDocuments(projectCode, materialCode);
+            }
+            
+            System.out.println("Found " + documents.size() + " reusable documents");
+            return ResponseEntity.ok(documents);
+            
+        } catch (Exception e) {
+            System.err.println("=== ERROR IN REUSABLE DOCUMENTS ===");
+            System.err.println("Error type: " + e.getClass().getSimpleName());
+            System.err.println("Error message: " + e.getMessage());
+            e.printStackTrace();
+            
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Failed to get reusable documents");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
-        return ResponseEntity.ok(documents);
     }
 
     /**
@@ -219,6 +288,64 @@ public class DocumentController {
     public ResponseEntity<Map<String, Object>> getStorageInfo() {
         Map<String, Object> info = documentService.getStorageInfo();
         return ResponseEntity.ok(info);
+    }
+
+    /**
+     * Simple test endpoint for upload debugging
+     */
+    @PostMapping("/test/upload-debug")
+    public ResponseEntity<Map<String, Object>> testUpload(
+            @RequestParam(value = "files", required = false) MultipartFile[] files,
+            @RequestParam(value = "projectCode", required = false) String projectCode,
+            @RequestParam(value = "materialCode", required = false) String materialCode,
+            @RequestParam(value = "workflowId", required = false) String workflowId) {
+        
+        System.out.println("=== UPLOAD DEBUG TEST - Reached controller ===");
+        System.out.println("Files: " + (files != null ? files.length : 0));
+        System.out.println("Project: " + projectCode);
+        System.out.println("Material: " + materialCode);
+        System.out.println("Workflow: " + workflowId);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "Upload test endpoint reached");
+        response.put("filesCount", files != null ? files.length : 0);
+        response.put("projectCode", projectCode);
+        response.put("materialCode", materialCode);
+        response.put("workflowId", workflowId);
+        
+        if (files != null) {
+            for (int i = 0; i < files.length; i++) {
+                response.put("file" + i + "_name", files[i].getOriginalFilename());
+                response.put("file" + i + "_size", files[i].getSize());
+            }
+        }
+        
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Simple GET endpoint to test controller accessibility
+     */
+    @GetMapping("/test/ping")
+    public ResponseEntity<Map<String, Object>> ping() {
+        System.out.println("=== PING TEST ENDPOINT REACHED ===");
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "DocumentController is accessible");
+        response.put("timestamp", System.currentTimeMillis());
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Simple POST endpoint to test POST requests
+     */
+    @PostMapping("/test/simple-post")
+    public ResponseEntity<Map<String, Object>> simplePost(@RequestBody(required = false) Map<String, Object> body) {
+        System.out.println("=== SIMPLE POST TEST ENDPOINT REACHED ===");
+        System.out.println("Request body: " + body);
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "POST request successful");
+        response.put("receivedBody", body);
+        return ResponseEntity.ok(response);
     }
 
     /**

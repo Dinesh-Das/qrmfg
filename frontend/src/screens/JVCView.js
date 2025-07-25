@@ -121,7 +121,23 @@ const JVCView = () => {
       
       // Upload new documents if any
       if (formData.uploadedFiles && formData.uploadedFiles.length > 0) {
-        const files = formData.uploadedFiles.map(file => file.originFileObj || file);
+        console.log('=== Upload Debug ===');
+        console.log('formData.uploadedFiles:', formData.uploadedFiles);
+        console.log('uploadedFiles length:', formData.uploadedFiles.length);
+        
+        const files = formData.uploadedFiles.map(file => {
+          console.log('Processing file:', file.name, 'status:', file.status, 'originFileObj:', !!file.originFileObj);
+          return file.originFileObj || file;
+        });
+        
+        console.log('Final files array:', files);
+        console.log('Calling uploadDocuments with:', {
+          filesCount: files.length,
+          projectCode: formData.projectCode,
+          materialCode: formData.materialCode,
+          workflowId: createdWorkflow.id
+        });
+        
         await documentAPI.uploadDocuments(files, formData.projectCode, formData.materialCode, createdWorkflow.id);
       }
       

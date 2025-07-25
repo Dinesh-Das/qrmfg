@@ -14,6 +14,8 @@ import com.cqs.qrmfg.repository.RoleRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import java.time.LocalDateTime;
 import com.cqs.qrmfg.model.ScreenRoleMapping;
 import com.cqs.qrmfg.repository.ScreenRoleMappingRepository;
@@ -71,6 +73,15 @@ private void initializeAdminUser(
         return roleRepository.save(r);
     });
 
+    // Ensure other required roles exist
+    createRoleIfNotExists(roleRepository, "JVC_USER", "JVC User role");
+    createRoleIfNotExists(roleRepository, "PLANT_USER", "Plant User role");
+    createRoleIfNotExists(roleRepository, "CQS_USER", "CQS User role");
+    createRoleIfNotExists(roleRepository, "TECH_USER", "Tech User role");
+
+    // Get JVC_USER role for admin
+    Role jvcRole = roleRepository.findByName("JVC_USER").orElse(null);
+
     // Check if admin user exists
     if (!userRepository.existsByUsername(adminUsername)) {
         User admin = new User();
@@ -81,9 +92,29 @@ private void initializeAdminUser(
         admin.setEnabled(true);
         admin.setCreatedAt(LocalDateTime.now());
         admin.setUpdatedAt(LocalDateTime.now());
-        admin.setRoles(Collections.singleton(adminRole));
+        
+        // Add both ADMIN and JVC_USER roles
+        Set<Role> roles = new HashSet<>();
+        roles.add(adminRole);
+        if (jvcRole != null) {
+            roles.add(jvcRole);
+        }
+        admin.setRoles(roles);
+        
         userRepository.save(admin);
         System.out.println("Default admin user created: username=admin, password=admin");
+    } else {
+        // Update existing admin user to have JVC_USER role if missing
+        User existingAdmin = userRepository.findByUsername(adminUsername).orElse(null);
+        if (existingAdmin != null && jvcRole != null) {
+            boolean hasJvcRole = existingAdmin.getRoles().stream()
+                .anyMatch(role -> "JVC_USER".equals(role.getName()));
+            if (!hasJvcRole) {
+                existingAdmin.getRoles().add(jvcRole);
+                userRepository.save(existingAdmin);
+                System.out.println("Added JVC_USER role to existing admin user");
+            }
+        }
     }
 
     // Create screen mappings for admin role
@@ -123,5 +154,17 @@ private void initializeAdminUser(
             System.out.println("Created screen mapping: " + screen + " -> ADMIN role");
         }
     }
+}
+
+private void createRoleIfNotExists(RoleRepository roleRepository, String roleName, String description) {
+    roleRepository.findByName(roleName).orElseGet(() -> {
+        Role r = new Role();
+        r.setName(roleName);
+        r.setDescription(description);
+        r.setEnabled(true);
+        r.setCreatedAt(LocalDateTime.now());
+        r.setUpdatedAt(LocalDateTime.now());
+        return roleRepository.save(r);
+    });
 }
 }

@@ -19,13 +19,13 @@ public interface WorkflowDocumentRepository extends JpaRepository<WorkflowDocume
     /**
      * Find reusable documents for same project and material combination
      */
-    @Query("SELECT wd FROM WorkflowDocument wd JOIN wd.workflow w WHERE w.projectCode = :projectCode AND w.materialCode = :materialCode")
+    @Query("SELECT wd FROM WorkflowDocument wd JOIN FETCH wd.workflow w WHERE w.projectCode = :projectCode AND w.materialCode = :materialCode")
     List<WorkflowDocument> findReusableDocuments(@Param("projectCode") String projectCode, @Param("materialCode") String materialCode);
 
     /**
      * Find documents by workflow project and material codes
      */
-    @Query("SELECT wd FROM WorkflowDocument wd JOIN wd.workflow w WHERE w.projectCode = :projectCode AND w.materialCode = :materialCode AND wd.workflow.id != :excludeWorkflowId")
+    @Query("SELECT wd FROM WorkflowDocument wd JOIN FETCH wd.workflow w WHERE w.projectCode = :projectCode AND w.materialCode = :materialCode AND wd.workflow.id != :excludeWorkflowId")
     List<WorkflowDocument> findReusableDocumentsExcludingWorkflow(@Param("projectCode") String projectCode, @Param("materialCode") String materialCode, @Param("excludeWorkflowId") Long excludeWorkflowId);
 
     /**

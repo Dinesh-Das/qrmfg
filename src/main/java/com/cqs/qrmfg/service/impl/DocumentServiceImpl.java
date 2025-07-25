@@ -207,21 +207,58 @@ public class DocumentServiceImpl implements DocumentService {
     }
 
     private String storeFile(MultipartFile file, String projectCode, String materialCode) throws IOException {
-        // Create directory structure: documents/{projectCode}/{materialCode}/
-        Path uploadPath = Paths.get(documentStoragePath, projectCode, materialCode);
-        Files.createDirectories(uploadPath);
+        try {
+            System.out.println("=== File Storage Debug ===");
+            System.out.println("Document storage path: " + documentStoragePath);
+            System.out.println("Project code: " + projectCode);
+            System.out.println("Material code: " + materialCode);
+            System.out.println("Original filename: " + file.getOriginalFilename());
+            System.out.println("File size: " + file.getSize());
+            
+            // Create directory structure: documents/{projectCode}/{materialCode}/
+            Path uploadPath = Paths.get(documentStoragePath, projectCode, materialCode);
+            System.out.println("Upload path: " + uploadPath.toAbsolutePath());
+            
+            // Check if parent directories exist and are writable
+            Path parentPath = uploadPath.getParent();
+            if (parentPath != null) {
+                System.out.println("Parent path: " + parentPath.toAbsolutePath());
+                System.out.println("Parent exists: " + Files.exists(parentPath));
+                System.out.println("Parent is directory: " + Files.isDirectory(parentPath));
+                System.out.println("Parent is writable: " + Files.isWritable(parentPath));
+            }
+            
+            Files.createDirectories(uploadPath);
+            System.out.println("Directory created successfully: " + uploadPath.toAbsolutePath());
+            System.out.println("Upload path exists: " + Files.exists(uploadPath));
+            System.out.println("Upload path is directory: " + Files.isDirectory(uploadPath));
+            System.out.println("Upload path is writable: " + Files.isWritable(uploadPath));
 
-        // Generate unique filename with timestamp for better organization
-        String originalFilename = file.getOriginalFilename();
-        String fileExtension = getFileExtension(originalFilename);
-        String timestamp = String.valueOf(System.currentTimeMillis());
-        String uniqueFilename = timestamp + "_" + UUID.randomUUID().toString() + "." + fileExtension;
+            // Generate unique filename with timestamp for better organization
+            String originalFilename = file.getOriginalFilename();
+            String fileExtension = getFileExtension(originalFilename);
+            String timestamp = String.valueOf(System.currentTimeMillis());
+            String uniqueFilename = timestamp + "_" + UUID.randomUUID().toString() + "." + fileExtension;
+            System.out.println("Generated unique filename: " + uniqueFilename);
 
-        // Store the file
-        Path filePath = uploadPath.resolve(uniqueFilename);
-        Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+            // Store the file
+            Path filePath = uploadPath.resolve(uniqueFilename);
+            System.out.println("Full file path: " + filePath.toAbsolutePath());
+            
+            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+            System.out.println("File stored successfully at: " + filePath.toAbsolutePath());
+            
+            // Verify file was created
+            System.out.println("File exists after creation: " + Files.exists(filePath));
+            System.out.println("File size after creation: " + Files.size(filePath));
 
-        return uniqueFilename;
+            return uniqueFilename;
+            
+        } catch (IOException e) {
+            System.err.println("Error storing file: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
     }
 
     private String getFilePath(String projectCode, String materialCode, String fileName) {
@@ -241,10 +278,32 @@ public class DocumentServiceImpl implements DocumentService {
 
     private void ensureDirectoryExists(String projectCode, String materialCode) {
         try {
+            System.out.println("=== Directory Creation Debug ===");
+            System.out.println("Document storage path: " + documentStoragePath);
+            System.out.println("Current working directory: " + System.getProperty("user.dir"));
+            
             Path uploadPath = Paths.get(documentStoragePath, projectCode, materialCode);
+            System.out.println("Target upload path: " + uploadPath.toAbsolutePath());
+            
+            // Check if base storage path exists
+            Path basePath = Paths.get(documentStoragePath);
+            System.out.println("Base storage path: " + basePath.toAbsolutePath());
+            System.out.println("Base path exists: " + Files.exists(basePath));
+            
+            if (!Files.exists(basePath)) {
+                System.out.println("Creating base storage directory...");
+                Files.createDirectories(basePath);
+                System.out.println("Base storage directory created: " + Files.exists(basePath));
+            }
+            
             Files.createDirectories(uploadPath);
             System.out.println("Created/verified directory structure: " + uploadPath.toAbsolutePath());
+            System.out.println("Directory exists: " + Files.exists(uploadPath));
+            System.out.println("Directory is writable: " + Files.isWritable(uploadPath));
+            
         } catch (IOException e) {
+            System.err.println("Failed to create directory structure: " + e.getMessage());
+            e.printStackTrace();
             throw new DocumentException("Failed to create directory structure for project: " + 
                 projectCode + ", material: " + materialCode, e);
         }

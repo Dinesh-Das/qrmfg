@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create axios instance with base configuration
 const apiClient = axios.create({
-  baseURL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:8081/qrmfg/api/v1',
+  baseURL: process.env.REACT_APP_API_BASE_URL || '/qrmfg/api/v1',
   timeout: 30000, // 30 seconds
   headers: {
     'Content-Type': 'application/json'
@@ -17,12 +17,12 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
+
     // Log request in development
     if (process.env.NODE_ENV === 'development') {
       console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`);
     }
-    
+
     return config;
   },
   (error) => {
@@ -46,13 +46,13 @@ apiClient.interceptors.response.use(
       status: error.response?.status,
       message: error.message
     });
-    
+
     // Handle authentication errors
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       window.location.href = '/qrmfg/login';
     }
-    
+
     return Promise.reject(error);
   }
 );
@@ -71,7 +71,7 @@ const api = {
     getPending: () => apiClient.get('/workflows/pending'),
     getByMaterial: (materialCode) => apiClient.get(`/workflows/material/${materialCode}`)
   },
-  
+
   // Query API methods
   queries: {
     getAll: () => apiClient.get('/queries'),
@@ -81,14 +81,14 @@ const api = {
     getInbox: (team) => apiClient.get(`/queries/inbox?team=${team}`),
     getByWorkflow: (workflowId) => apiClient.get(`/workflows/${workflowId}/queries`)
   },
-  
+
   // Dashboard API methods
   dashboard: {
     getPendingTasks: () => apiClient.get('/dashboard/pending-tasks'),
     getQuerySummary: () => apiClient.get('/dashboard/query-summary'),
     getWorkflowStats: () => apiClient.get('/dashboard/workflow-stats')
   },
-  
+
   // Admin API methods
   admin: {
     getUsers: () => apiClient.get('/admin/users'),

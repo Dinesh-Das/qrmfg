@@ -3,15 +3,17 @@ import { apiRequest } from '../api/api';
 export const documentAPI = {
   // Document upload and management
   uploadDocuments: (files, projectCode, materialCode, workflowId) => {
+    if (!workflowId) {
+      throw new Error('workflowId is required for document upload');
+    }
+    
     const formData = new FormData();
     files.forEach(file => {
       formData.append('files', file);
     });
     formData.append('projectCode', projectCode);
     formData.append('materialCode', materialCode);
-    if (workflowId) {
-      formData.append('workflowId', workflowId);
-    }
+    formData.append('workflowId', workflowId.toString());
 
     return apiRequest('/documents/upload', {
       method: 'POST',

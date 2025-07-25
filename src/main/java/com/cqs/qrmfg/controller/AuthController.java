@@ -74,5 +74,33 @@ public class AuthController {
 
  
 
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refreshToken(@RequestHeader("Authorization") String authHeader) {
+        try {
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return ResponseEntity.status(401).body("Invalid authorization header");
+            }
+            
+            String token = authHeader.substring(7);
+            String username = jwtUtil.extractUsername(token);
+            
+            // Check if user exists
+            Optional<User> userOpt = userRepository.findByUsername(username);
+            if (!userOpt.isPresent()) {
+                return ResponseEntity.status(401).body("User not found");
+            }
+            
+            // Generate new token
+            String newToken = jwtUtil.generateToken(username);
+            
+            Map<String, String> response = new HashMap<>();
+            response.put("token", newToken);
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(401).body("Invalid or expired token");
+        }
+    }
+
     // Remove or comment out the getMySessions and terminateMySession methods, as they are not required for the current feature set.
 } 

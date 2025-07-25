@@ -1,6 +1,6 @@
 // API utility functions for making HTTP requests
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8081/qrmfg/api/v1';
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || '/qrmfg/api/v1';
 
 /**
  * Get authentication token from localStorage
@@ -54,10 +54,17 @@ const handleResponse = async (response) => {
 export const apiRequest = async (endpoint, options = {}) => {
   const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
 
+  const defaultHeaders = getDefaultHeaders();
+  
+  // For FormData, don't set Content-Type - let browser set it with boundary
+  if (options.body instanceof FormData) {
+    delete defaultHeaders['Content-Type'];
+  }
+
   const config = {
     ...options,
     headers: {
-      ...getDefaultHeaders(),
+      ...defaultHeaders,
       ...options.headers,
     },
   };
