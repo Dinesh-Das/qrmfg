@@ -15,7 +15,7 @@ CREATE SEQUENCE RBAC_USER_SEQ START WITH 1 INCREMENT BY 1;
 CREATE SEQUENCE RBAC_AUDIT_LOG_SEQ START WITH 1 INCREMENT BY 1;
 
 -- Questionnaire Master table
-CREATE TABLE qrmfg_questionnaire_master (
+CREATE TABLE QRMFG_QUESTIONNAIRE_MASTER (
     id NUMBER PRIMARY KEY,
     sr_no NUMBER,
     checklist_text VARCHAR2(2000),
@@ -42,7 +42,7 @@ CREATE TABLE qrmfg_questionnaire_master (
 );
 
 -- Material Workflows table
-CREATE TABLE qrmfg_material_workflows (
+CREATE TABLE QRMFG_MATERIAL_WORKFLOWS (
     id NUMBER PRIMARY KEY,
     project_code VARCHAR2(50) NOT NULL,
     material_code VARCHAR2(50) NOT NULL,
@@ -64,7 +64,7 @@ CREATE TABLE qrmfg_material_workflows (
 );
 
 -- Queries table
-CREATE TABLE qrmfg_queries (
+CREATE TABLE QRMFG_QUERIES (
     id NUMBER PRIMARY KEY,
     workflow_id NUMBER NOT NULL,
     question VARCHAR2(2000) NOT NULL,
@@ -82,11 +82,11 @@ CREATE TABLE qrmfg_queries (
     last_modified TIMESTAMP NOT NULL,
     created_by VARCHAR2(50),
     updated_by VARCHAR2(50),
-    CONSTRAINT fk_query_workflow FOREIGN KEY (workflow_id) REFERENCES qrmfg_material_workflows(id)
+    CONSTRAINT fk_query_workflow FOREIGN KEY (workflow_id) REFERENCES QRMFG_MATERIAL_WORKFLOWS(id)
 );
 
 -- Questionnaire Responses table
-CREATE TABLE qrmfg_questionnaire_responses (
+CREATE TABLE QRMFG_QUESTIONNAIRE_RESPONSES (
     id NUMBER PRIMARY KEY,
     workflow_id NUMBER NOT NULL,
     step_number NUMBER NOT NULL,
@@ -103,11 +103,11 @@ CREATE TABLE qrmfg_questionnaire_responses (
     modified_by VARCHAR2(100) NOT NULL,
     created_at TIMESTAMP NOT NULL,
     created_by VARCHAR2(50),
-    CONSTRAINT fk_response_workflow FOREIGN KEY (workflow_id) REFERENCES qrmfg_material_workflows(id)
+    CONSTRAINT fk_response_workflow FOREIGN KEY (workflow_id) REFERENCES QRMFG_MATERIAL_WORKFLOWS(id)
 );
 
 -- Workflow Documents table
-CREATE TABLE qrmfg_workflow_documents (
+CREATE TABLE QRMFG_WORKFLOW_DOCUMENTS (
     id NUMBER PRIMARY KEY,
     workflow_id NUMBER NOT NULL,
     file_name VARCHAR2(255) NOT NULL,
@@ -122,12 +122,12 @@ CREATE TABLE qrmfg_workflow_documents (
     created_by VARCHAR2(50),
     updated_by VARCHAR2(50),
     last_modified TIMESTAMP NOT NULL,
-    CONSTRAINT fk_document_workflow FOREIGN KEY (workflow_id) REFERENCES qrmfg_material_workflows(id),
-    CONSTRAINT fk_document_original FOREIGN KEY (original_document_id) REFERENCES qrmfg_workflow_documents(id)
+    CONSTRAINT fk_document_workflow FOREIGN KEY (workflow_id) REFERENCES QRMFG_MATERIAL_WORKFLOWS(id),
+    CONSTRAINT fk_document_original FOREIGN KEY (original_document_id) REFERENCES QRMFG_WORKFLOW_DOCUMENTS(id)
 );
 
 -- Revision info table for Hibernate Envers
-CREATE TABLE qrmfg_revinfo (
+CREATE TABLE QRMFG_REVINFO (
     id NUMBER PRIMARY KEY,
     timestamp NUMBER NOT NULL,
     username VARCHAR2(100),
@@ -135,7 +135,7 @@ CREATE TABLE qrmfg_revinfo (
 );
 
 -- Notification Preferences table
-CREATE TABLE qrmfg_notification_preferences (
+CREATE TABLE QRMFG_NOTIFICATION_PREFERENCES (
     id NUMBER PRIMARY KEY,
     username VARCHAR2(100) NOT NULL,
     notification_type VARCHAR2(50) NOT NULL,
@@ -150,7 +150,7 @@ CREATE TABLE qrmfg_notification_preferences (
 );
 
 -- Audit tables for Hibernate Envers
-CREATE TABLE qrmfg_questionnaire_master_aud (
+CREATE TABLE QRMFG_QUESTIONNAIRE_MASTER_AUD (
     id NUMBER,
     rev NUMBER,
     revtype NUMBER,
@@ -177,10 +177,10 @@ CREATE TABLE qrmfg_questionnaire_master_aud (
     created_by VARCHAR2(50),
     updated_by VARCHAR2(50),
     PRIMARY KEY (id, rev),
-    CONSTRAINT fk_questionnaire_master_aud_rev FOREIGN KEY (rev) REFERENCES qrmfg_revinfo(id)
+    CONSTRAINT fk_questionnaire_master_aud_rev FOREIGN KEY (rev) REFERENCES QRMFG_REVINFO(id)
 );
 
-CREATE TABLE qrmfg_material_workflows_aud (
+CREATE TABLE QRMFG_MATERIAL_WORKFLOWS_AUD (
     id NUMBER,
     rev NUMBER,
     revtype NUMBER,
@@ -201,10 +201,10 @@ CREATE TABLE qrmfg_material_workflows_aud (
     created_by VARCHAR2(50),
     updated_by VARCHAR2(50),
     PRIMARY KEY (id, rev),
-    CONSTRAINT fk_workflow_aud_rev FOREIGN KEY (rev) REFERENCES qrmfg_revinfo(id)
+    CONSTRAINT fk_workflow_aud_rev FOREIGN KEY (rev) REFERENCES QRMFG_REVINFO(id)
 );
 
-CREATE TABLE qrmfg_queries_aud (
+CREATE TABLE QRMFG_QUERIES_AUD (
     id NUMBER,
     rev NUMBER,
     revtype NUMBER,
@@ -225,10 +225,10 @@ CREATE TABLE qrmfg_queries_aud (
     created_by VARCHAR2(50),
     updated_by VARCHAR2(50),
     PRIMARY KEY (id, rev),
-    CONSTRAINT fk_query_aud_rev FOREIGN KEY (rev) REFERENCES qrmfg_revinfo(id)
+    CONSTRAINT fk_query_aud_rev FOREIGN KEY (rev) REFERENCES QRMFG_REVINFO(id)
 );
 
-CREATE TABLE qrmfg_questionnaire_responses_aud (
+CREATE TABLE QRMFG_QUESTIONNAIRE_RESPONSES_AUD (
     id NUMBER,
     rev NUMBER,
     revtype NUMBER,
@@ -248,10 +248,10 @@ CREATE TABLE qrmfg_questionnaire_responses_aud (
     created_at TIMESTAMP,
     created_by VARCHAR2(50),
     PRIMARY KEY (id, rev),
-    CONSTRAINT fk_response_aud_rev FOREIGN KEY (rev) REFERENCES qrmfg_revinfo(id)
+    CONSTRAINT fk_response_aud_rev FOREIGN KEY (rev) REFERENCES QRMFG_REVINFO(id)
 );
 
-CREATE TABLE qrmfg_workflow_documents_aud (
+CREATE TABLE QRMFG_WORKFLOW_DOCUMENTS_AUD (
     id NUMBER,
     rev NUMBER,
     revtype NUMBER,
@@ -269,7 +269,7 @@ CREATE TABLE qrmfg_workflow_documents_aud (
     updated_by VARCHAR2(50),
     last_modified TIMESTAMP,
     PRIMARY KEY (id, rev),
-    CONSTRAINT fk_document_aud_rev FOREIGN KEY (rev) REFERENCES qrmfg_revinfo(id)
+    CONSTRAINT fk_document_aud_rev FOREIGN KEY (rev) REFERENCES QRMFG_REVINFO(id)
 );
 
 -- Create indexes for better performance
@@ -304,7 +304,7 @@ CREATE SEQUENCE USER_SEQ START WITH 1 INCREMENT BY 1;
 CREATE SEQUENCE ROLE_SEQ START WITH 1 INCREMENT BY 1;
 
 -- Audit Logs table for admin monitoring
-CREATE TABLE qrmfg_audit_logs (
+CREATE TABLE QRMFG_AUDIT_LOGS (
     id NUMBER PRIMARY KEY,
     timestamp TIMESTAMP NOT NULL,
     username VARCHAR2(100) NOT NULL,
@@ -318,7 +318,7 @@ CREATE TABLE qrmfg_audit_logs (
 );
 
 -- Users table for user management
-CREATE TABLE qrmfg_users (
+CREATE TABLE QRMFG_USERS (
     id NUMBER PRIMARY KEY,
     username VARCHAR2(100) UNIQUE NOT NULL,
     email VARCHAR2(255) UNIQUE NOT NULL,
@@ -335,7 +335,7 @@ CREATE TABLE qrmfg_users (
 );
 
 -- Roles table for role-based access control
-CREATE TABLE qrmfg_roles (
+CREATE TABLE QRMFG_ROLES (
     id NUMBER PRIMARY KEY,
     name VARCHAR2(50) UNIQUE NOT NULL,
     description VARCHAR2(200),
@@ -347,26 +347,26 @@ CREATE TABLE qrmfg_roles (
 );
 
 -- User-Role mapping table
-CREATE TABLE qrmfg_user_roles (
+CREATE TABLE QRMFG_USER_ROLES (
     user_id NUMBER NOT NULL,
     role_id NUMBER NOT NULL,
     assigned_at TIMESTAMP NOT NULL,
     assigned_by VARCHAR2(100),
     PRIMARY KEY (user_id, role_id),
-    CONSTRAINT fk_user_role_user FOREIGN KEY (user_id) REFERENCES qrmfg_users(id),
-    CONSTRAINT fk_user_role_role FOREIGN KEY (role_id) REFERENCES qrmfg_roles(id)
+    CONSTRAINT fk_user_role_user FOREIGN KEY (user_id) REFERENCES QRMFG_USERS(id),
+    CONSTRAINT fk_user_role_role FOREIGN KEY (role_id) REFERENCES QRMFG_ROLES(id)
 );
 
 -- Screen Role Mapping table
-CREATE TABLE qrmfg_screen_role_mapping (
+CREATE TABLE QRMFG_SCREEN_ROLE_MAPPING (
     id NUMBER PRIMARY KEY,
     route VARCHAR2(255) NOT NULL,
     role_id NUMBER NOT NULL,
-    CONSTRAINT fk_screen_role_mapping_role FOREIGN KEY (role_id) REFERENCES qrmfg_roles(id)
+    CONSTRAINT fk_screen_role_mapping_role FOREIGN KEY (role_id) REFERENCES QRMFG_ROLES(id)
 );
 
 -- User Sessions table
-CREATE TABLE qrmfg_user_sessions (
+CREATE TABLE QRMFG_USER_SESSIONS (
     id NUMBER PRIMARY KEY,
     user_id NUMBER NOT NULL,
     session_id VARCHAR2(255) UNIQUE NOT NULL,
@@ -383,7 +383,7 @@ CREATE TABLE qrmfg_user_sessions (
     location VARCHAR2(100),
     browser VARCHAR2(20),
     os VARCHAR2(20),
-    CONSTRAINT fk_user_session_user FOREIGN KEY (user_id) REFERENCES qrmfg_users(id)
+    CONSTRAINT fk_user_session_user FOREIGN KEY (user_id) REFERENCES QRMFG_USERS(id)
 );
 
 -- Create additional indexes for audit and user management
@@ -448,7 +448,7 @@ COMMENT ON COLUMN qrmfg_roles.name IS 'Role name: ADMIN, JVC_USER, PLANT_USER, C
 -- Document Access Logs table for audit trail
 CREATE SEQUENCE DOCUMENT_ACCESS_LOG_SEQ START WITH 1 INCREMENT BY 1;
 
-CREATE TABLE qrmfg_document_access_logs (
+CREATE TABLE QRMFG_DOCUMENT_ACCESS_LOGS (
     id NUMBER PRIMARY KEY,
     document_id NUMBER NOT NULL,
     accessed_by VARCHAR2(100) NOT NULL,
@@ -459,8 +459,8 @@ CREATE TABLE qrmfg_document_access_logs (
     workflow_id NUMBER,
     access_granted NUMBER(1) DEFAULT 1 NOT NULL,
     denial_reason VARCHAR2(255),
-    CONSTRAINT fk_doc_access_document FOREIGN KEY (document_id) REFERENCES qrmfg_workflow_documents(id),
-    CONSTRAINT fk_doc_access_workflow FOREIGN KEY (workflow_id) REFERENCES qrmfg_material_workflows(id)
+    CONSTRAINT fk_doc_access_document FOREIGN KEY (document_id) REFERENCES QRMFG_WORKFLOW_DOCUMENTS(id),
+    CONSTRAINT fk_doc_access_workflow FOREIGN KEY (workflow_id) REFERENCES QRMFG_MATERIAL_WORKFLOWS(id)
 );
 
 -- Create indexes for better performance
@@ -471,7 +471,7 @@ CREATE INDEX idx_doc_access_workflow ON qrmfg_document_access_logs(workflow_id);
 CREATE INDEX idx_doc_access_type ON qrmfg_document_access_logs(access_type);
 
 -- Add audit table for document access logs
-CREATE TABLE qrmfg_document_access_logs_aud (
+CREATE TABLE QRMFG_DOCUMENT_ACCESS_LOGS_AUD (
     id NUMBER NOT NULL,
     rev NUMBER NOT NULL,
     revtype NUMBER(3),
@@ -485,20 +485,20 @@ CREATE TABLE qrmfg_document_access_logs_aud (
     access_granted NUMBER(1),
     denial_reason VARCHAR2(255),
     PRIMARY KEY (id, rev),
-    CONSTRAINT fk_doc_access_log_aud_rev FOREIGN KEY (rev) REFERENCES qrmfg_revinfo(id)
+    CONSTRAINT fk_doc_access_log_aud_rev FOREIGN KEY (rev) REFERENCES QRMFG_REVINFO(id)
 );
 
-CREATE TABLE qrmfg_screen_role_mapping_aud (
+CREATE TABLE QRMFG_SCREEN_ROLE_MAPPING_AUD (
     id NUMBER,
     rev NUMBER,
     revtype NUMBER,
     route VARCHAR2(255),
     role_id NUMBER,
     PRIMARY KEY (id, rev),
-    CONSTRAINT fk_screen_role_mapping_aud_rev FOREIGN KEY (rev) REFERENCES qrmfg_revinfo(id)
+    CONSTRAINT fk_screen_role_mapping_aud_rev FOREIGN KEY (rev) REFERENCES QRMFG_REVINFO(id)
 );
 
-CREATE TABLE qrmfg_user_sessions_aud (
+CREATE TABLE QRMFG_USER_SESSIONS_AUD (
     id NUMBER,
     rev NUMBER,
     revtype NUMBER,
@@ -518,5 +518,5 @@ CREATE TABLE qrmfg_user_sessions_aud (
     browser VARCHAR2(20),
     os VARCHAR2(20),
     PRIMARY KEY (id, rev),
-    CONSTRAINT fk_user_sessions_aud_rev FOREIGN KEY (rev) REFERENCES qrmfg_revinfo(id)
+    CONSTRAINT fk_user_sessions_aud_rev FOREIGN KEY (rev) REFERENCES QRMFG_REVINFO(id)
 );

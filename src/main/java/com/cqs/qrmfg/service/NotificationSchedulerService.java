@@ -1,6 +1,6 @@
 package com.cqs.qrmfg.service;
 
-import com.cqs.qrmfg.model.MaterialWorkflow;
+import com.cqs.qrmfg.model.Workflow;
 import com.cqs.qrmfg.model.Query;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,9 +35,9 @@ public class NotificationSchedulerService {
         logger.debug("Checking for overdue workflows...");
         
         try {
-            List<MaterialWorkflow> overdueWorkflows = workflowService.findOverdueWorkflows();
+            List<Workflow> overdueWorkflows = workflowService.findOverdueWorkflows();
             
-            for (MaterialWorkflow workflow : overdueWorkflows) {
+            for (Workflow workflow : overdueWorkflows) {
                 logger.info("Found overdue workflow: {} ({} days pending)", 
                            workflow.getMaterialCode(), workflow.getDaysPending());
                 
@@ -122,8 +122,8 @@ public class NotificationSchedulerService {
         
         try {
             // Get recent workflows and queries
-            List<MaterialWorkflow> recentWorkflows = workflowService.findRecentlyCreated(7);
-            List<MaterialWorkflow> completedWorkflows = workflowService.findRecentlyCompleted(7);
+            List<Workflow> recentWorkflows = workflowService.findRecentlyCreated(7);
+            List<Workflow> completedWorkflows = workflowService.findRecentlyCompleted(7);
             List<Query> recentQueries = queryService.findRecentQueries(7);
             
             // Create summary message
@@ -136,7 +136,7 @@ public class NotificationSchedulerService {
             // Add workflow details
             if (!recentWorkflows.isEmpty()) {
                 summary.append("\nNew Workflows:\n");
-                for (MaterialWorkflow workflow : recentWorkflows) {
+                for (Workflow workflow : recentWorkflows) {
                     summary.append(String.format("- %s (%s) - %s\n", 
                                                  workflow.getMaterialCode(), 
                                                  workflow.getAssignedPlant(),
@@ -146,7 +146,7 @@ public class NotificationSchedulerService {
             
             if (!completedWorkflows.isEmpty()) {
                 summary.append("\nCompleted Workflows:\n");
-                for (MaterialWorkflow workflow : completedWorkflows) {
+                for (Workflow workflow : completedWorkflows) {
                     summary.append(String.format("- %s (%s) - Completed\n", 
                                                  workflow.getMaterialCode(), 
                                                  workflow.getAssignedPlant()));

@@ -3,11 +3,11 @@ package com.cqs.qrmfg.model;
 import javax.persistence.*;
 
 @Entity
-@Table(name = "qrmfg_screen_role_mapping")
+@Table(name = "QRMFG_PERMISSIONS")
 public class ScreenRoleMapping {
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "screen_role_mapping_seq")
-    @SequenceGenerator(name = "screen_role_mapping_seq", sequenceName = "SCREEN_ROLE_MAPPING_SEQ", allocationSize = 1)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "permissions_seq")
+    @SequenceGenerator(name = "permissions_seq", sequenceName = "QRMFG_PERMISSIONS_SEQ", allocationSize = 1)
     private Long id;
 
     @Column(nullable = false, length = 255)

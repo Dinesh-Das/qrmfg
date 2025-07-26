@@ -2,7 +2,6 @@ package com.cqs.qrmfg.model;
 
 public enum NotificationChannel {
     EMAIL("Email", "Email notification"),
-    SLACK("Slack", "Slack notification"),
     IN_APP("In-App", "In-application notification");
 
     private final String displayName;

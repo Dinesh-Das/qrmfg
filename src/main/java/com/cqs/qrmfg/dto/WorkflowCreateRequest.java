@@ -33,9 +33,6 @@ public class WorkflowCreateRequest {
     @Size(max = 500, message = "Safety documents path must not exceed 500 characters")
     private String safetyDocumentsPath;
 
-    @Size(max = 20, message = "Priority level must not exceed 20 characters")
-    private String priorityLevel = "NORMAL";
-
     public WorkflowCreateRequest() {}
 
     public WorkflowCreateRequest(String materialCode, String materialName, String materialDescription,
@@ -77,7 +74,4 @@ public class WorkflowCreateRequest {
 
     public String getSafetyDocumentsPath() { return safetyDocumentsPath; }
     public void setSafetyDocumentsPath(String safetyDocumentsPath) { this.safetyDocumentsPath = safetyDocumentsPath; }
-
-    public String getPriorityLevel() { return priorityLevel; }
-    public void setPriorityLevel(String priorityLevel) { this.priorityLevel = priorityLevel; }
 }

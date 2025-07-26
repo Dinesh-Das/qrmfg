@@ -2,12 +2,12 @@ package com.cqs.qrmfg.service.impl;
 
 import com.cqs.qrmfg.config.EnversConfig;
 import com.cqs.qrmfg.dto.AuditHistoryDto;
-import com.cqs.qrmfg.model.MaterialWorkflow;
+import com.cqs.qrmfg.model.Workflow;
 import com.cqs.qrmfg.model.Query;
-import com.cqs.qrmfg.model.QuestionnaireResponse;
+import com.cqs.qrmfg.model.Answer;
 import com.cqs.qrmfg.repository.WorkflowRepository;
 import com.cqs.qrmfg.repository.QueryRepository;
-import com.cqs.qrmfg.repository.QuestionnaireResponseRepository;
+import com.cqs.qrmfg.repository.AnswerRepository;
 import com.cqs.qrmfg.service.WorkflowAuditService;
 import org.hibernate.envers.AuditReader;
 import org.hibernate.envers.AuditReaderFactory;
@@ -41,14 +41,14 @@ public class WorkflowAuditServiceImpl implements WorkflowAuditService {
     private QueryRepository queryRepository;
 
     @Autowired
-    private QuestionnaireResponseRepository responseRepository;
+    private AnswerRepository responseRepository;
 
     @Override
     public List<AuditHistoryDto> getWorkflowAuditHistory(Long workflowId) {
         AuditReader auditReader = AuditReaderFactory.get(entityManager);
         
         List<Object[]> revisions = auditReader.createQuery()
-                .forRevisionsOfEntity(MaterialWorkflow.class, false, true)
+                .forRevisionsOfEntity(Workflow.class, false, true)
                 .add(AuditEntity.id().eq(workflowId))
                 .addOrder(AuditEntity.revisionNumber().desc())
                 .getResultList();
@@ -66,14 +66,14 @@ public class WorkflowAuditServiceImpl implements WorkflowAuditService {
         auditTrail.addAll(getWorkflowAuditHistory(workflowId));
         
         // Get queries audit history
-        MaterialWorkflow workflow = workflowRepository.findById(workflowId).orElse(null);
+        Workflow workflow = workflowRepository.findById(workflowId).orElse(null);
         if (workflow != null) {
             for (Query query : workflow.getQueries()) {
                 auditTrail.addAll(getQueryAuditHistory(query.getId()));
             }
             
             // Get questionnaire responses audit history
-            for (QuestionnaireResponse response : workflow.getResponses()) {
+            for (Answer response : workflow.getResponses()) {
                 auditTrail.addAll(getQuestionnaireResponseAuditHistory(response.getId()));
             }
         }
@@ -108,7 +108,7 @@ public class WorkflowAuditServiceImpl implements WorkflowAuditService {
         AuditReader auditReader = AuditReaderFactory.get(entityManager);
         
         List<Object[]> revisions = auditReader.createQuery()
-                .forRevisionsOfEntity(QuestionnaireResponse.class, false, true)
+                .forRevisionsOfEntity(Answer.class, false, true)
                 .add(AuditEntity.id().eq(responseId))
                 .addOrder(AuditEntity.revisionNumber().desc())
                 .getResultList();
@@ -127,7 +127,7 @@ public class WorkflowAuditServiceImpl implements WorkflowAuditService {
         
         // Get recent workflow changes
         List<Object[]> workflowRevisions = auditReader.createQuery()
-                .forRevisionsOfEntity(MaterialWorkflow.class, false, true)
+                .forRevisionsOfEntity(Workflow.class, false, true)
                 .add(AuditEntity.revisionProperty("timestamp").ge(cutoffDate.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()))
                 .addOrder(AuditEntity.revisionNumber().desc())
                 .setMaxResults(100)
@@ -167,7 +167,7 @@ public class WorkflowAuditServiceImpl implements WorkflowAuditService {
         
         // Get workflow changes by user
         List<Object[]> workflowRevisions = auditReader.createQuery()
-                .forRevisionsOfEntity(MaterialWorkflow.class, false, true)
+                .forRevisionsOfEntity(Workflow.class, false, true)
                 .add(AuditEntity.revisionProperty("username").eq(username))
                 .addOrder(AuditEntity.revisionNumber().desc())
                 .setMaxResults(100)
@@ -210,7 +210,7 @@ public class WorkflowAuditServiceImpl implements WorkflowAuditService {
             case "workflow":
             case "materialworkflow":
                 List<Object[]> workflowRevisions = auditReader.createQuery()
-                        .forRevisionsOfEntity(MaterialWorkflow.class, false, true)
+                        .forRevisionsOfEntity(Workflow.class, false, true)
                         .add(AuditEntity.revisionProperty("timestamp").ge(cutoffDate.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()))
                         .addOrder(AuditEntity.revisionNumber().desc())
                         .getResultList();
@@ -235,7 +235,7 @@ public class WorkflowAuditServiceImpl implements WorkflowAuditService {
             case "response":
             case "questionnaireresponse":
                 List<Object[]> responseRevisions = auditReader.createQuery()
-                        .forRevisionsOfEntity(QuestionnaireResponse.class, false, true)
+                        .forRevisionsOfEntity(Answer.class, false, true)
                         .add(AuditEntity.revisionProperty("timestamp").ge(cutoffDate.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()))
                         .addOrder(AuditEntity.revisionNumber().desc())
                         .getResultList();
@@ -267,7 +267,7 @@ public class WorkflowAuditServiceImpl implements WorkflowAuditService {
         // Search workflows
         if (entityType == null || "workflow".equalsIgnoreCase(entityType)) {
             AuditQuery query = auditReader.createQuery()
-                    .forRevisionsOfEntity(MaterialWorkflow.class, false, true);
+                    .forRevisionsOfEntity(Workflow.class, false, true);
             
             if (username != null) {
                 query.add(AuditEntity.revisionProperty("username").eq(username));
@@ -301,14 +301,14 @@ public class WorkflowAuditServiceImpl implements WorkflowAuditService {
 
     @Override
     public List<AuditHistoryDto> getQuestionnaireResponseVersions(Long workflowId) {
-        MaterialWorkflow workflow = workflowRepository.findById(workflowId).orElse(null);
+        Workflow workflow = workflowRepository.findById(workflowId).orElse(null);
         if (workflow == null) {
             return Collections.emptyList();
         }
         
         List<AuditHistoryDto> versions = new ArrayList<>();
         
-        for (QuestionnaireResponse response : workflow.getResponses()) {
+        for (Answer response : workflow.getResponses()) {
             versions.addAll(getQuestionnaireResponseAuditHistory(response.getId()));
         }
         
@@ -324,7 +324,7 @@ public class WorkflowAuditServiceImpl implements WorkflowAuditService {
 
     @Override
     public Map<String, Object> getReadOnlyWorkflowView(Long workflowId) {
-        MaterialWorkflow workflow = workflowRepository.findById(workflowId).orElse(null);
+        Workflow workflow = workflowRepository.findById(workflowId).orElse(null);
         if (workflow == null) {
             return Collections.emptyMap();
         }
@@ -337,7 +337,6 @@ public class WorkflowAuditServiceImpl implements WorkflowAuditService {
         readOnlyView.put("initiatedBy", workflow.getInitiatedBy());
         readOnlyView.put("materialName", workflow.getMaterialName());
         readOnlyView.put("materialDescription", workflow.getMaterialDescription());
-        readOnlyView.put("priorityLevel", workflow.getPriorityLevel());
         readOnlyView.put("createdAt", workflow.getCreatedAt());
         readOnlyView.put("lastModified", workflow.getLastModified());
         readOnlyView.put("completedAt", workflow.getCompletedAt());
@@ -369,7 +368,7 @@ public class WorkflowAuditServiceImpl implements WorkflowAuditService {
 
     // Helper methods for mapping revisions to DTOs
     private AuditHistoryDto mapWorkflowRevisionToDto(Object[] revision) {
-        MaterialWorkflow entity = (MaterialWorkflow) revision[0];
+        Workflow entity = (Workflow) revision[0];
         EnversConfig revInfo = (EnversConfig) revision[1];
         RevisionType revType = (RevisionType) revision[2];
         
@@ -377,7 +376,7 @@ public class WorkflowAuditServiceImpl implements WorkflowAuditService {
         dto.setId(entity.getId());
         dto.setRevisionId(revInfo.getId());
         dto.setRevisionType(revType.name());
-        dto.setEntityType("MaterialWorkflow");
+        dto.setEntityType("Workflow");
         dto.setEntityId(entity.getId().toString());
         dto.setUsername(revInfo.getUsername());
         dto.setRevisionDate(revInfo.getRevisionDate());
@@ -417,7 +416,7 @@ public class WorkflowAuditServiceImpl implements WorkflowAuditService {
     }
 
     private AuditHistoryDto mapResponseRevisionToDto(Object[] revision) {
-        QuestionnaireResponse entity = (QuestionnaireResponse) revision[0];
+        Answer entity = (Answer) revision[0];
         EnversConfig revInfo = (EnversConfig) revision[1];
         RevisionType revType = (RevisionType) revision[2];
         
@@ -425,7 +424,7 @@ public class WorkflowAuditServiceImpl implements WorkflowAuditService {
         dto.setId(entity.getId());
         dto.setRevisionId(revInfo.getId());
         dto.setRevisionType(revType.name());
-        dto.setEntityType("QuestionnaireResponse");
+        dto.setEntityType("Answer");
         dto.setEntityId(entity.getId().toString());
         dto.setUsername(revInfo.getUsername());
         dto.setRevisionDate(revInfo.getRevisionDate());
@@ -450,7 +449,7 @@ public class WorkflowAuditServiceImpl implements WorkflowAuditService {
         }
     }
 
-    private String generateWorkflowDescription(MaterialWorkflow workflow, RevisionType revType) {
+    private String generateWorkflowDescription(Workflow workflow, RevisionType revType) {
         switch (revType) {
             case ADD:
                 return "Created workflow for material " + workflow.getMaterialCode();
@@ -477,7 +476,7 @@ public class WorkflowAuditServiceImpl implements WorkflowAuditService {
         }
     }
 
-    private String generateResponseDescription(QuestionnaireResponse response, RevisionType revType) {
+    private String generateResponseDescription(Answer response, RevisionType revType) {
         switch (revType) {
             case ADD:
                 return "Added response for " + response.getFieldName();
@@ -505,7 +504,7 @@ public class WorkflowAuditServiceImpl implements WorkflowAuditService {
         return queryView;
     }
 
-    private Map<String, Object> mapResponseToReadOnlyView(QuestionnaireResponse response) {
+    private Map<String, Object> mapResponseToReadOnlyView(Answer response) {
         Map<String, Object> responseView = new HashMap<>();
         responseView.put("id", response.getId());
         responseView.put("stepNumber", response.getStepNumber());

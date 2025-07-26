@@ -56,4 +56,11 @@ public class QueryCreateRequest {
 
     public String getQueryCategory() { return queryCategory; }
     public void setQueryCategory(String queryCategory) { this.queryCategory = queryCategory; }
+
+    @Override
+    public String toString() {
+        return String.format("QueryCreateRequest{question='%s', stepNumber=%d, fieldName='%s', assignedTeam=%s, priorityLevel='%s', queryCategory='%s'}", 
+                           question != null ? question.substring(0, Math.min(question.length(), 50)) + "..." : null, 
+                           stepNumber, fieldName, assignedTeam, priorityLevel, queryCategory);
+    }
 }

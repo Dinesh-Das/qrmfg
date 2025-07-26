@@ -2,8 +2,8 @@ import { apiRequest } from '../api/api';
 
 export const queryAPI = {
   // Query CRUD operations
-  createQuery: (queryData) =>
-    apiRequest('/queries', {
+  createQuery: (workflowId, queryData) =>
+    apiRequest(`/queries/workflow/${workflowId}`, {
       method: 'POST',
       body: JSON.stringify(queryData)
     }),
@@ -43,51 +43,57 @@ export const queryAPI = {
     }),
 
   reassignQuery: (id, newTeam, reason) =>
-    apiRequest(`/queries/${id}/reassign`, {
-      method: 'POST',
-      body: JSON.stringify({ newTeam, reason })
+    apiRequest(`/queries/${id}/assign`, {
+      method: 'PUT',
+      body: JSON.stringify({ team: newTeam, reason })
     }),
 
   // Query search and filtering
   getQueriesByWorkflow: (workflowId) =>
-    apiRequest(`/queries/by-workflow/${workflowId}`),
+    apiRequest(`/queries/workflow/${workflowId}`),
 
   getQueriesByTeam: (team) =>
-    apiRequest(`/queries/by-team/${team}`),
+    apiRequest(`/queries/team/${team}`),
 
   getQueriesByStatus: (status) =>
-    apiRequest(`/queries/by-status/${status}`),
+    apiRequest(`/queries/status/${status}`),
 
   getQueriesByUser: (username) =>
-    apiRequest(`/queries/by-user/${encodeURIComponent(username)}`),
+    apiRequest(`/queries/my-raised`),
 
-  searchQueries: (searchParams) =>
-    apiRequest('/queries/search', {
-      method: 'POST',
-      body: JSON.stringify(searchParams)
-    }),
+  searchQueries: (searchParams) => {
+    const queryString = new URLSearchParams(searchParams).toString();
+    return apiRequest(`/queries/search?${queryString}`);
+  },
 
   // Query statistics
   getQueryStats: (timeRange) =>
-    apiRequest(`/queries/stats?range=${timeRange}`),
+    apiRequest(`/queries/recent?days=${timeRange}`),
 
-  getQueryCountsByTeam: () =>
-    apiRequest('/queries/counts-by-team'),
+  getQueryCountsByTeam: (team) =>
+    apiRequest(`/queries/stats/count-open/${team}`),
 
-  getAvgResolutionTimeByTeam: () =>
-    apiRequest('/queries/avg-resolution-time-by-team'),
+  getAvgResolutionTimeByTeam: (team) =>
+    apiRequest(`/queries/stats/avg-resolution-time/${team}`),
 
   getOverdueQueries: (dayThreshold = 3) =>
-    apiRequest(`/queries/overdue?days=${dayThreshold}`),
+    apiRequest('/queries/overdue'),
+
+  // Team-specific statistics
+  getOverdueQueriesCountByTeam: (team) =>
+    apiRequest(`/queries/stats/overdue-count/${team}`),
+
+  getQueriesResolvedTodayByTeam: (team) =>
+    apiRequest(`/queries/stats/resolved-today/${team}`),
 
   // Query SLA tracking
   getQuerySLAStatus: (id) =>
-    apiRequest(`/queries/${id}/sla-status`),
+    apiRequest(`/queries/${id}/is-overdue`),
 
   getQueriesNearingSLA: (hoursThreshold = 24) =>
-    apiRequest(`/queries/nearing-sla?hours=${hoursThreshold}`),
+    apiRequest('/queries/needing-attention'),
 
-  // Query comments/updates
+  // Query comments/updates (not implemented in backend yet)
   addQueryComment: (id, comment) =>
     apiRequest(`/queries/${id}/comments`, {
       method: 'POST',
@@ -105,8 +111,8 @@ export const queryAPI = {
     }),
 
   escalateQuery: (id, escalationReason) =>
-    apiRequest(`/queries/${id}/escalate`, {
-      method: 'POST',
-      body: JSON.stringify({ reason: escalationReason })
+    apiRequest(`/queries/${id}/priority`, {
+      method: 'PUT',
+      body: JSON.stringify({ priorityLevel: 'HIGH' })
     })
 };

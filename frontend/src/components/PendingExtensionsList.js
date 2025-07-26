@@ -299,7 +299,7 @@ const PendingExtensionsList = ({ onExtendToPlant, refreshTrigger }) => {
         <Space direction="vertical" size="small">
           <Text code>{text || 'N/A'}</Text>
           <Text type="secondary" style={{ fontSize: '11px' }}>
-            {record.materialDescription || 'Material Safety Extension'}
+            {record.itemDescription || record.materialDescription || 'Material Safety Extension'}
           </Text>
         </Space>
       ),
@@ -439,7 +439,7 @@ const PendingExtensionsList = ({ onExtendToPlant, refreshTrigger }) => {
             onClick={() => handleExtendWorkflow(record)}
             size="small"
           >
-            Extend to Plant
+            Send to Plant
           </Button>
         </Space>
       ),

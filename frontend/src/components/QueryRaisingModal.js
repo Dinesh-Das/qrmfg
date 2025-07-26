@@ -22,12 +22,12 @@ import { queryAPI } from '../services/queryAPI';
 const { TextArea } = Input;
 const { Option } = Select;
 
-const QueryRaisingModal = ({ 
-  visible, 
-  onCancel, 
-  onSubmit, 
-  workflowId, 
-  fieldContext 
+const QueryRaisingModal = ({
+  visible,
+  onCancel,
+  onSubmit,
+  workflowId,
+  fieldContext
 }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
@@ -35,26 +35,21 @@ const QueryRaisingModal = ({
   const handleSubmit = async (values) => {
     try {
       setLoading(true);
-      
+
       const queryData = {
-        workflowId,
         question: values.question,
-        assignedTeam: values.assignedTeam,
-        priority: values.priority || 'MEDIUM',
+        assignedTeam: values.assignedTeam, // This should be 'CQS', 'TECH', or 'JVC'
+        priorityLevel: values.priority || 'MEDIUM',
         fieldName: fieldContext?.name,
-        fieldContext: values.fieldContext || fieldContext?.label,
         stepNumber: fieldContext?.stepNumber,
-        stepTitle: fieldContext?.stepTitle,
-        createdBy: getCurrentUser(),
-        attachments: values.attachments || [],
-        urgencyReason: values.urgencyReason || null
+        queryCategory: 'GENERAL' // Default category
       };
 
-      const createdQuery = await queryAPI.createQuery(queryData);
-      
+      const createdQuery = await queryAPI.createQuery(workflowId, queryData);
+
       message.success('Query raised successfully');
       form.resetFields();
-      
+
       if (onSubmit) {
         onSubmit(createdQuery);
       }
@@ -96,14 +91,14 @@ const QueryRaisingModal = ({
 
   const getRecommendedTeam = (fieldContext) => {
     if (!fieldContext || !fieldContext.name) return null;
-    
+
     const fieldName = fieldContext.name.toLowerCase();
     const stepTitle = fieldContext.stepTitle?.toLowerCase() || '';
     const fieldLabel = fieldContext.label?.toLowerCase() || '';
-    
+
     // Enhanced smart team recommendation with confidence scoring
     let recommendations = [];
-    
+
     // CQS Team scoring
     let cqsScore = 0;
     const cqsKeywords = ['hazard', 'safety', 'precautionary', 'environmental', 'toxic', 'corrosive', 'flammable', 'classification', 'ghs', 'signal', 'statement'];
@@ -112,7 +107,7 @@ const QueryRaisingModal = ({
         cqsScore += 1;
       }
     });
-    
+
     // Technical Team scoring
     let techScore = 0;
     const techKeywords = ['physical', 'boiling', 'melting', 'technical', 'properties', 'temperature', 'state', 'color', 'odor', 'specification'];
@@ -121,7 +116,7 @@ const QueryRaisingModal = ({
         techScore += 1;
       }
     });
-    
+
     // JVC Team scoring
     let jvcScore = 0;
     const jvcKeywords = ['material', 'supplier', 'cas', 'basic', 'information', 'name', 'identification', 'type'];
@@ -130,18 +125,18 @@ const QueryRaisingModal = ({
         jvcScore += 1;
       }
     });
-    
+
     // Determine primary recommendation
     const maxScore = Math.max(cqsScore, techScore, jvcScore);
     let primaryTeam = 'CQS'; // Default to CQS for safety
     let confidence = 'Medium';
-    
+
     if (maxScore === 0) {
       confidence = 'Low';
     } else if (maxScore >= 3) {
       confidence = 'High';
     }
-    
+
     if (cqsScore === maxScore) {
       primaryTeam = 'CQS';
     } else if (techScore === maxScore) {
@@ -149,13 +144,13 @@ const QueryRaisingModal = ({
     } else if (jvcScore === maxScore) {
       primaryTeam = 'JVC';
     }
-    
+
     const teamDescriptions = {
       'CQS': 'Chemical Quality & Safety team - handles safety data, hazard classifications, and regulatory compliance',
       'TECH': 'Technical team - handles technical specifications, physical properties, and process-related questions',
       'JVC': 'JVC team - handles material identification, supplier information, and general material questions'
     };
-    
+
     return (
       <div>
         <div style={{ marginBottom: 8 }}>

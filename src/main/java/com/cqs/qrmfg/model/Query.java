@@ -1,21 +1,23 @@
 package com.cqs.qrmfg.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.hibernate.envers.Audited;
 import javax.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "qrmfg_queries")
+@Table(name = "QRMFG_QUERIES")
 // @Audited  // Temporarily disabled to fix constraint issues
 public class Query {
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "query_seq")
-    @SequenceGenerator(name = "query_seq", sequenceName = "QUERY_SEQ", allocationSize = 1)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "queries_seq")
+    @SequenceGenerator(name = "queries_seq", sequenceName = "QRMFG_QUERIES_SEQ", allocationSize = 1)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "workflow_id", nullable = false)
-    private MaterialWorkflow workflow;
+    @JsonIgnoreProperties({"queries", "responses", "documents"})
+    private Workflow workflow;
 
     @Column(name = "question", nullable = false, length = 2000)
     private String question;
@@ -66,7 +68,7 @@ public class Query {
 
     public Query() {}
 
-    public Query(MaterialWorkflow workflow, String question, QueryTeam assignedTeam, String raisedBy) {
+    public Query(Workflow workflow, String question, QueryTeam assignedTeam, String raisedBy) {
         this.workflow = workflow;
         this.question = question;
         this.assignedTeam = assignedTeam;
@@ -77,7 +79,7 @@ public class Query {
         this.updatedBy = raisedBy;
     }
 
-    public Query(MaterialWorkflow workflow, String question, Integer stepNumber, String fieldName, 
+    public Query(Workflow workflow, String question, Integer stepNumber, String fieldName, 
                  QueryTeam assignedTeam, String raisedBy) {
         this(workflow, question, assignedTeam, raisedBy);
         this.stepNumber = stepNumber;
@@ -144,8 +146,8 @@ public class Query {
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
-    public MaterialWorkflow getWorkflow() { return workflow; }
-    public void setWorkflow(MaterialWorkflow workflow) { this.workflow = workflow; }
+    public Workflow getWorkflow() { return workflow; }
+    public void setWorkflow(Workflow workflow) { this.workflow = workflow; }
 
     public String getQuestion() { return question; }
     public void setQuestion(String question) { this.question = question; }

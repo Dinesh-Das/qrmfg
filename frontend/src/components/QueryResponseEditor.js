@@ -92,7 +92,7 @@ const QueryResponseEditor = ({ value, onChange, placeholder, disabled = false })
   };
 
   return (
-    <Card size="small" style={{ border: '1px solid #d9d9d9' }}>
+    <Card size="small" className="query-response-editor" style={{ border: '1px solid #d9d9d9' }}>
       {/* Toolbar */}
       <div style={{ marginBottom: 8, borderBottom: '1px solid #f0f0f0', paddingBottom: 8 }}>
         <Space wrap>
@@ -197,7 +197,12 @@ const QueryResponseEditor = ({ value, onChange, placeholder, disabled = false })
             borderRadius: '6px',
             outline: 'none',
             backgroundColor: disabled ? '#f5f5f5' : '#fff',
-            color: disabled ? '#999' : '#000'
+            color: disabled ? '#999' : '#000',
+            direction: 'ltr',
+            textAlign: 'left',
+            fontFamily: 'inherit',
+            fontSize: '14px',
+            lineHeight: '1.5'
           }}
           dangerouslySetInnerHTML={{ __html: value || '' }}
           data-placeholder={placeholder}
@@ -214,39 +219,42 @@ const QueryResponseEditor = ({ value, onChange, placeholder, disabled = false })
         {value ? getPlainText(value).length : 0} characters
       </div>
 
-      <style jsx>{`
-        [contenteditable]:empty:before {
-          content: attr(data-placeholder);
-          color: #999;
-          font-style: italic;
-        }
-        
-        [contenteditable] ul, [contenteditable] ol {
-          margin: 8px 0;
-          padding-left: 20px;
-        }
-        
-        [contenteditable] li {
-          margin: 4px 0;
-        }
-        
-        [contenteditable] a {
-          color: #1890ff;
-          text-decoration: underline;
-        }
-        
-        [contenteditable] strong {
-          font-weight: bold;
-        }
-        
-        [contenteditable] em {
-          font-style: italic;
-        }
-        
-        [contenteditable] u {
-          text-decoration: underline;
-        }
-      `}</style>
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          .query-response-editor [contenteditable]:empty:before {
+            content: attr(data-placeholder);
+            color: #999;
+            font-style: italic;
+          }
+          
+          .query-response-editor [contenteditable] ul, 
+          .query-response-editor [contenteditable] ol {
+            margin: 8px 0;
+            padding-left: 20px;
+          }
+          
+          .query-response-editor [contenteditable] li {
+            margin: 4px 0;
+          }
+          
+          .query-response-editor [contenteditable] a {
+            color: #1890ff;
+            text-decoration: underline;
+          }
+          
+          .query-response-editor [contenteditable] strong {
+            font-weight: bold;
+          }
+          
+          .query-response-editor [contenteditable] em {
+            font-style: italic;
+          }
+          
+          .query-response-editor [contenteditable] u {
+            text-decoration: underline;
+          }
+        `
+      }} />
     </Card>
   );
 };

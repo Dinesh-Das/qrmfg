@@ -3,7 +3,7 @@ package com.cqs.qrmfg.model;
 import javax.persistence.*;
 
 @Entity
-@Table(name = "QRMFG_LOCATION_MASTER")
+@Table(name = "QRMFG_LOCATIONS")
 public class QrmfgLocationMaster {
     
     @Id

@@ -11,11 +11,11 @@ import java.util.Set;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
-@Table(name = "qrmfg_users")
+@Table(name = "QRMFG_USERS")
 public class User implements UserDetails {
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "user_seq")
-    @SequenceGenerator(name = "user_seq", sequenceName = "RBAC_USER_SEQ", allocationSize = 1)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "users_seq")
+    @SequenceGenerator(name = "users_seq", sequenceName = "QRMFG_USERS_SEQ", allocationSize = 1)
     private Long id;
 
     @Column(unique = true, nullable = false)
@@ -53,7 +53,7 @@ public class User implements UserDetails {
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
-        name = "qrmfg_user_roles",
+        name = "QRMFG_USER_ROLES",
         joinColumns = @JoinColumn(name = "user_id"),
         inverseJoinColumns = @JoinColumn(name = "role_id")
     )

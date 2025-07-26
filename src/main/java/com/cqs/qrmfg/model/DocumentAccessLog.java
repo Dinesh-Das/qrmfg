@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
  * Entity to track document access and downloads for audit purposes
  */
 @Entity
-@Table(name = "document_access_logs")
+@Table(name = "QRMFG_ACCESS_LOG")
 // @Audited  // Temporarily disabled to fix constraint issues
 public class DocumentAccessLog {
 
@@ -19,7 +19,7 @@ public class DocumentAccessLog {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "document_id", nullable = false)
-    private WorkflowDocument document;
+    private Document document;
 
     @Column(name = "accessed_by", nullable = false, length = 100)
     private String accessedBy;
@@ -49,7 +49,7 @@ public class DocumentAccessLog {
     // Constructors
     public DocumentAccessLog() {}
 
-    public DocumentAccessLog(WorkflowDocument document, String accessedBy, DocumentAccessType accessType, 
+    public DocumentAccessLog(Document document, String accessedBy, DocumentAccessType accessType, 
                            LocalDateTime accessTime, String ipAddress, String userAgent, Long workflowId,
                            Boolean accessGranted, String denialReason) {
         this.document = document;
@@ -72,11 +72,11 @@ public class DocumentAccessLog {
         this.id = id;
     }
 
-    public WorkflowDocument getDocument() {
+    public Document getDocument() {
         return document;
     }
 
-    public void setDocument(WorkflowDocument document) {
+    public void setDocument(Document document) {
         this.document = document;
     }
 

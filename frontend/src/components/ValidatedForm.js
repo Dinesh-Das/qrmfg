@@ -269,19 +269,6 @@ export const WorkflowForm = ({ onSubmit, initialValues, ...props }) => {
       >
         <Input placeholder="Enter documents path or URL" />
       </ValidatedFormItem>
-      
-      <ValidatedFormItem
-        name="priorityLevel"
-        label="Priority Level"
-        maxLength={20}
-      >
-        <Select defaultValue="NORMAL" placeholder="Select priority">
-          <Select.Option value="LOW">Low</Select.Option>
-          <Select.Option value="NORMAL">Normal</Select.Option>
-          <Select.Option value="HIGH">High</Select.Option>
-          <Select.Option value="URGENT">Urgent</Select.Option>
-        </Select>
-      </ValidatedFormItem>
     </ValidatedForm>
   );
 };
@@ -345,18 +332,6 @@ export const QueryForm = ({ onSubmit, initialValues, ...props }) => {
         </Select>
       </ValidatedFormItem>
       
-      <ValidatedFormItem
-        name="priorityLevel"
-        label="Priority Level"
-        maxLength={20}
-      >
-        <Select defaultValue="NORMAL" placeholder="Select priority">
-          <Select.Option value="LOW">Low</Select.Option>
-          <Select.Option value="NORMAL">Normal</Select.Option>
-          <Select.Option value="HIGH">High</Select.Option>
-          <Select.Option value="URGENT">Urgent</Select.Option>
-        </Select>
-      </ValidatedFormItem>
       
       <ValidatedFormItem
         name="queryCategory"

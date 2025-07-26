@@ -57,12 +57,12 @@ function App() {
     <Router>
       <Layout>
         {showSidebar && <Navigation />}
-        <Layout style={{ 
+        <Layout style={{
           minHeight: '100vh',
           marginLeft: showSidebar ? 250 : 0,
           transition: 'margin-left 0.2s'
         }}>
-          <Header style={{ 
+          <Header style={{
             padding: '0 24px',
             background: '#fff',
             position: 'sticky',
@@ -72,7 +72,7 @@ function App() {
             display: 'flex',
             alignItems: 'center'
           }} />
-          <Content style={{ 
+          <Content style={{
             margin: '24px 16px',
             padding: 24,
             minHeight: 280,
@@ -103,11 +103,11 @@ function App() {
               <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
             </Routes>
           </Content>
-          <Footer style={{ 
+          <Footer style={{
             textAlign: 'center',
-            padding: '16px'
+            padding: '13px'
           }}>
-            RBAC System ©{new Date().getFullYear()} Created by Your Company
+            QRMFG System © {new Date().getFullYear()} Asian Paints Limited | Developed by IT Manufacturing Automation Team
           </Footer>
         </Layout>
       </Layout>

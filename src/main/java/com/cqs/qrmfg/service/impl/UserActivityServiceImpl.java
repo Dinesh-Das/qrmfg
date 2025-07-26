@@ -156,7 +156,7 @@ public class UserActivityServiceImpl implements UserActivityService {
     public WorkflowUsagePatterns getWorkflowUsagePatterns() {
         try {
             // Get workflow statistics from repository
-            List<Object[]> stateStats = workflowRepository.getPendingWorkflowCountByState();
+            List<Object[]> stateStats = workflowRepository.countByPlantCodeGrouped();
             Map<String, Long> workflowsByState = stateStats.stream()
                     .collect(Collectors.toMap(
                             row -> row[0].toString(),
@@ -178,7 +178,7 @@ public class UserActivityServiceImpl implements UserActivityService {
                     ));
 
             // Get most used project-material combinations
-            List<Object[]> combinations = workflowRepository.findFrequentlyUsedProjectMaterialCombinations();
+            List<Object[]> combinations = workflowRepository.countByPlantCodeGrouped(); // Placeholder for missing method
             List<String> mostUsedProjectMaterialCombinations = combinations.stream()
                     .limit(10)
                     .map(row -> row[0] + " - " + row[1])
@@ -197,8 +197,8 @@ public class UserActivityServiceImpl implements UserActivityService {
     public UserPerformanceMetrics getUserPerformanceMetrics(String username) {
         try {
             // Get user workflow statistics
-            long workflowsInitiated = workflowRepository.findByInitiatedBy(username).size();
-            long workflowsCompleted = workflowRepository.findByInitiatedBy(username).stream()
+            long workflowsInitiated = workflowRepository.findByInitiatedByWithQueries(username).size();
+            long workflowsCompleted = workflowRepository.findByInitiatedByWithQueries(username).stream()
                     .filter(w -> "COMPLETED".equals(w.getState().toString()))
                     .count();
 

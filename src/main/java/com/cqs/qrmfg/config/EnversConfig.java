@@ -11,13 +11,13 @@ import javax.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "qrmfg_revinfo")
+@Table(name = "QRMFG_REVISIONS")
 @RevisionEntity(EnversConfig.CustomRevisionListener.class)
 public class EnversConfig {
     
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "revinfo_seq")
-    @SequenceGenerator(name = "revinfo_seq", sequenceName = "REVINFO_SEQ", allocationSize = 1)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "revisions_seq")
+    @SequenceGenerator(name = "revisions_seq", sequenceName = "QRMFG_REVISIONS_SEQ", allocationSize = 1)
     @org.hibernate.envers.RevisionNumber
     private Long id;
 

@@ -3,7 +3,7 @@ package com.cqs.qrmfg.service;
 import com.cqs.qrmfg.dto.DocumentAccessLogDto;
 import com.cqs.qrmfg.dto.DocumentSummary;
 import com.cqs.qrmfg.model.DocumentAccessType;
-import com.cqs.qrmfg.model.WorkflowDocument;
+import com.cqs.qrmfg.model.Document;
 import org.springframework.core.io.Resource;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -42,7 +42,7 @@ public interface DocumentService {
     /**
      * Get document by ID
      */
-    WorkflowDocument getDocumentById(Long documentId);
+    Document getDocumentById(Long documentId);
 
     /**
      * Delete a document

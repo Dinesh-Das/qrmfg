@@ -6,8 +6,8 @@ import com.cqs.qrmfg.dto.DocumentSummary;
 import com.cqs.qrmfg.exception.DocumentException;
 import com.cqs.qrmfg.exception.DocumentNotFoundException;
 import com.cqs.qrmfg.model.User;
-import com.cqs.qrmfg.model.WorkflowDocument;
-import com.cqs.qrmfg.repository.WorkflowDocumentRepository;
+import com.cqs.qrmfg.model.Document;
+import com.cqs.qrmfg.repository.DocumentRepository;
 import com.cqs.qrmfg.service.DocumentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
@@ -37,7 +37,7 @@ public class DocumentController {
     private DocumentService documentService;
 
     @Autowired
-    private WorkflowDocumentRepository workflowDocumentRepository;
+    private DocumentRepository documentRepository;
 
     /**
      * Upload documents for a workflow - JVC users only
@@ -122,7 +122,7 @@ public class DocumentController {
             System.out.println("Document ID: " + id);
             System.out.println("Workflow ID: " + workflowId);
             
-            WorkflowDocument document = documentService.getDocumentById(id);
+            Document document = documentService.getDocumentById(id);
             System.out.println("Found document: " + document.getOriginalFileName());
             System.out.println("File path: " + document.getFilePath());
             
@@ -232,7 +232,7 @@ public class DocumentController {
         if (enhanced) {
             summary = documentService.getEnhancedDocumentSummary(id);
         } else {
-            WorkflowDocument document = documentService.getDocumentById(id);
+            Document document = documentService.getDocumentById(id);
             summary = new DocumentSummary(
                 document.getId(),
                 document.getFileName(),
@@ -373,10 +373,10 @@ public class DocumentController {
      */
     @GetMapping("/test/list-all")
     public ResponseEntity<List<Map<String, Object>>> listAllDocuments() {
-        List<WorkflowDocument> allDocuments = workflowDocumentRepository.findAll();
+        List<Document> allDocuments = documentRepository.findAll();
         List<Map<String, Object>> documentInfo = new java.util.ArrayList<>();
         
-        for (WorkflowDocument doc : allDocuments) {
+        for (Document doc : allDocuments) {
             Map<String, Object> info = new java.util.HashMap<>();
             info.put("id", doc.getId());
             info.put("originalFileName", doc.getOriginalFileName());

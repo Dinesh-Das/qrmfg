@@ -26,6 +26,13 @@ public class QuestionnaireTemplateDto {
     private LocalDateTime updatedAt;
     private String createdBy;
     private String updatedBy;
+    
+    // New fields for template structure
+    private List<QuestionnaireStepDto> steps;
+    private String materialCode;
+    private String plantCode;
+    private String templateType;
+    private Integer version;
 
     public QuestionnaireTemplateDto() {}
 
@@ -106,4 +113,19 @@ public class QuestionnaireTemplateDto {
 
     public String getUpdatedBy() { return updatedBy; }
     public void setUpdatedBy(String updatedBy) { this.updatedBy = updatedBy; }
+    
+    public List<QuestionnaireStepDto> getSteps() { return steps; }
+    public void setSteps(List<QuestionnaireStepDto> steps) { this.steps = steps; }
+    
+    public String getMaterialCode() { return materialCode; }
+    public void setMaterialCode(String materialCode) { this.materialCode = materialCode; }
+    
+    public String getPlantCode() { return plantCode; }
+    public void setPlantCode(String plantCode) { this.plantCode = plantCode; }
+    
+    public String getTemplateType() { return templateType; }
+    public void setTemplateType(String templateType) { this.templateType = templateType; }
+    
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
 }

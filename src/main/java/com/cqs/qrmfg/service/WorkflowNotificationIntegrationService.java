@@ -1,8 +1,9 @@
 package com.cqs.qrmfg.service;
 
-import com.cqs.qrmfg.model.MaterialWorkflow;
+import com.cqs.qrmfg.model.Workflow;
 import com.cqs.qrmfg.model.Query;
 import com.cqs.qrmfg.model.WorkflowState;
+import static com.cqs.qrmfg.model.WorkflowState.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,7 +25,7 @@ public class WorkflowNotificationIntegrationService {
     /**
      * Handle workflow creation events
      */
-    public void handleWorkflowCreated(MaterialWorkflow workflow) {
+    public void handleWorkflowCreated(Workflow workflow) {
         logger.info("Handling workflow created event for material: {}", workflow.getMaterialCode());
         
         try {
@@ -38,7 +39,7 @@ public class WorkflowNotificationIntegrationService {
     /**
      * Handle workflow state transition events
      */
-    public void handleWorkflowStateChanged(MaterialWorkflow workflow, WorkflowState previousState, String changedBy) {
+    public void handleWorkflowStateChanged(Workflow workflow, WorkflowState previousState, String changedBy) {
         logger.info("Handling workflow state change for material: {} from {} to {}", 
                    workflow.getMaterialCode(), previousState, workflow.getState());
         
@@ -118,7 +119,7 @@ public class WorkflowNotificationIntegrationService {
     /**
      * Handle overdue workflow events (called by scheduler)
      */
-    public void handleWorkflowOverdue(MaterialWorkflow workflow) {
+    public void handleWorkflowOverdue(Workflow workflow) {
         logger.info("Handling overdue workflow event for material: {} ({} days pending)", 
                    workflow.getMaterialCode(), workflow.getDaysPending());
         

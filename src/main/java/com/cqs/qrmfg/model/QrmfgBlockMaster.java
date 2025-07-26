@@ -3,7 +3,7 @@ package com.cqs.qrmfg.model;
 import javax.persistence.*;
 
 @Entity
-@Table(name = "QRMFG_BLOCK_MASTER")
+@Table(name = "QRMFG_BLOCKS")
 public class QrmfgBlockMaster {
     
     @Id

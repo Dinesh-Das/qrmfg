@@ -7,11 +7,11 @@ import com.cqs.qrmfg.exception.DocumentNotFoundException;
 import com.cqs.qrmfg.exception.WorkflowException;
 import com.cqs.qrmfg.model.DocumentAccessLog;
 import com.cqs.qrmfg.model.DocumentAccessType;
-import com.cqs.qrmfg.model.MaterialWorkflow;
-import com.cqs.qrmfg.model.WorkflowDocument;
+import com.cqs.qrmfg.model.Workflow;
+import com.cqs.qrmfg.model.Document;
 import com.cqs.qrmfg.repository.DocumentAccessLogRepository;
 import com.cqs.qrmfg.repository.WorkflowRepository;
-import com.cqs.qrmfg.repository.WorkflowDocumentRepository;
+import com.cqs.qrmfg.repository.DocumentRepository;
 import com.cqs.qrmfg.service.DocumentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,10 +36,10 @@ import java.util.stream.Collectors;
 public class DocumentServiceImpl implements DocumentService {
 
     @Autowired
-    private WorkflowDocumentRepository workflowDocumentRepository;
+    private DocumentRepository documentRepository;
 
     @Autowired
-    private WorkflowRepository materialWorkflowRepository;
+    private WorkflowRepository workflowRepository;
 
     @Autowired
     private DocumentAccessLogRepository documentAccessLogRepository;
@@ -54,7 +54,7 @@ public class DocumentServiceImpl implements DocumentService {
 
     @Override
     public List<DocumentSummary> uploadDocuments(MultipartFile[] files, String projectCode, String materialCode, Long workflowId, String uploadedBy) {
-        MaterialWorkflow workflow = materialWorkflowRepository.findById(workflowId)
+        Workflow workflow = workflowRepository.findById(workflowId)
                 .orElseThrow(() -> new WorkflowException("Workflow not found with ID: " + workflowId));
 
         List<DocumentSummary> uploadedDocuments = new ArrayList<>();
@@ -76,7 +76,7 @@ public class DocumentServiceImpl implements DocumentService {
                     " for project: " + projectCode + 
                     ", material: " + materialCode);
                 
-                WorkflowDocument document = new WorkflowDocument();
+                Document document = new Document();
                 document.setWorkflow(workflow);
                 document.setFileName(fileName);
                 document.setOriginalFileName(file.getOriginalFilename());
@@ -86,8 +86,10 @@ public class DocumentServiceImpl implements DocumentService {
                 document.setUploadedBy(uploadedBy);
                 document.setUploadedAt(LocalDateTime.now());
                 document.setIsReused(false);
+                document.setCreatedBy(uploadedBy);
+                document.setUpdatedBy(uploadedBy);
 
-                WorkflowDocument savedDocument = workflowDocumentRepository.save(document);
+                Document savedDocument = documentRepository.save(document);
                 uploadedDocuments.add(convertToDocumentSummary(savedDocument));
 
             } catch (IOException e) {
@@ -100,7 +102,7 @@ public class DocumentServiceImpl implements DocumentService {
 
     @Override
     public List<DocumentSummary> getWorkflowDocuments(Long workflowId) {
-        List<WorkflowDocument> documents = workflowDocumentRepository.findByWorkflowId(workflowId);
+        List<Document> documents = documentRepository.findByWorkflowId(workflowId);
         return documents.stream()
                 .map(this::convertToDocumentSummary)
                 .collect(Collectors.toList());
@@ -108,7 +110,7 @@ public class DocumentServiceImpl implements DocumentService {
 
     @Override
     public List<DocumentSummary> getReusableDocuments(String projectCode, String materialCode) {
-        List<WorkflowDocument> documents = workflowDocumentRepository.findReusableDocuments(projectCode, materialCode);
+        List<Document> documents = documentRepository.findReusableDocuments(projectCode, materialCode);
         return documents.stream()
                 .map(this::convertToDocumentSummary)
                 .collect(Collectors.toList());
@@ -116,16 +118,16 @@ public class DocumentServiceImpl implements DocumentService {
 
     @Override
     public List<DocumentSummary> reuseDocuments(Long workflowId, List<Long> documentIds, String reuseBy) {
-        MaterialWorkflow workflow = materialWorkflowRepository.findById(workflowId)
+        Workflow workflow = workflowRepository.findById(workflowId)
                 .orElseThrow(() -> new WorkflowException("Workflow not found with ID: " + workflowId));
 
         List<DocumentSummary> reusedDocuments = new ArrayList<>();
 
         for (Long documentId : documentIds) {
-            WorkflowDocument originalDocument = workflowDocumentRepository.findById(documentId)
+            Document originalDocument = documentRepository.findById(documentId)
                     .orElseThrow(() -> new DocumentNotFoundException(documentId));
 
-            WorkflowDocument reusedDocument = new WorkflowDocument();
+            Document reusedDocument = new Document();
             reusedDocument.setWorkflow(workflow);
             reusedDocument.setFileName(originalDocument.getFileName());
             reusedDocument.setOriginalFileName(originalDocument.getOriginalFileName());
@@ -136,8 +138,10 @@ public class DocumentServiceImpl implements DocumentService {
             reusedDocument.setUploadedAt(LocalDateTime.now());
             reusedDocument.setIsReused(true);
             reusedDocument.setOriginalDocumentId(documentId);
+            reusedDocument.setCreatedBy(reuseBy);
+            reusedDocument.setUpdatedBy(reuseBy);
 
-            WorkflowDocument savedDocument = workflowDocumentRepository.save(reusedDocument);
+            Document savedDocument = documentRepository.save(reusedDocument);
             reusedDocuments.add(convertToDocumentSummary(savedDocument));
         }
 
@@ -146,7 +150,7 @@ public class DocumentServiceImpl implements DocumentService {
 
     @Override
     public Resource downloadDocument(Long documentId) {
-        WorkflowDocument document = workflowDocumentRepository.findById(documentId)
+        Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new DocumentNotFoundException(documentId));
 
         try {
@@ -164,14 +168,14 @@ public class DocumentServiceImpl implements DocumentService {
     }
 
     @Override
-    public WorkflowDocument getDocumentById(Long documentId) {
-        return workflowDocumentRepository.findById(documentId)
+    public Document getDocumentById(Long documentId) {
+        return documentRepository.findById(documentId)
                 .orElseThrow(() -> new DocumentNotFoundException(documentId));
     }
 
     @Override
     public void deleteDocument(Long documentId, String deletedBy) {
-        WorkflowDocument document = getDocumentById(documentId);
+        Document document = getDocumentById(documentId);
         
         // Only delete the file if it's not reused by other workflows
         if (!document.getIsReused()) {
@@ -184,7 +188,7 @@ public class DocumentServiceImpl implements DocumentService {
             }
         }
 
-        workflowDocumentRepository.delete(document);
+        documentRepository.delete(document);
     }
 
     @Override
@@ -203,7 +207,7 @@ public class DocumentServiceImpl implements DocumentService {
 
     @Override
     public long getDocumentCount(Long workflowId) {
-        return workflowDocumentRepository.countByWorkflowId(workflowId);
+        return documentRepository.countByWorkflowId(workflowId);
     }
 
     private String storeFile(MultipartFile file, String projectCode, String materialCode) throws IOException {
@@ -356,7 +360,7 @@ public class DocumentServiceImpl implements DocumentService {
 
     @Override
     public Resource downloadDocumentSecure(Long documentId, String userId, String ipAddress, String userAgent, Long workflowId) {
-        WorkflowDocument document = workflowDocumentRepository.findById(documentId)
+        Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new DocumentNotFoundException(documentId));
 
         // Check access permissions
@@ -388,13 +392,13 @@ public class DocumentServiceImpl implements DocumentService {
 
     @Override
     public boolean hasDocumentAccess(Long documentId, String userId, Long workflowId) {
-        WorkflowDocument document = workflowDocumentRepository.findById(documentId)
+        Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new DocumentNotFoundException(documentId));
 
         // Check if user has access to the workflow that contains this document
         if (workflowId != null && !document.getWorkflow().getId().equals(workflowId)) {
             // Check if user has access to the specific workflow
-            MaterialWorkflow workflow = materialWorkflowRepository.findById(workflowId).orElse(null);
+            Workflow workflow = workflowRepository.findById(workflowId).orElse(null);
             if (workflow == null) {
                 return false;
             }
@@ -410,7 +414,7 @@ public class DocumentServiceImpl implements DocumentService {
     public void logDocumentAccess(Long documentId, String userId, DocumentAccessType accessType, 
                                 String ipAddress, String userAgent, Long workflowId, 
                                 boolean accessGranted, String denialReason) {
-        WorkflowDocument document = workflowDocumentRepository.findById(documentId).orElse(null);
+        Document document = documentRepository.findById(documentId).orElse(null);
         if (document != null) {
             DocumentAccessLog accessLog = new DocumentAccessLog(
                 document, userId, accessType, LocalDateTime.now(), 
@@ -430,7 +434,7 @@ public class DocumentServiceImpl implements DocumentService {
 
     @Override
     public DocumentSummary getEnhancedDocumentSummary(Long documentId) {
-        WorkflowDocument document = getDocumentById(documentId);
+        Document document = getDocumentById(documentId);
         
         // Get download count
         long downloadCount = documentAccessLogRepository.countDocumentAccess(documentId, DocumentAccessType.DOWNLOAD);
@@ -445,7 +449,7 @@ public class DocumentServiceImpl implements DocumentService {
 
     @Override
     public List<DocumentSummary> getReusableDocumentsEnhanced(String projectCode, String materialCode) {
-        List<WorkflowDocument> documents = workflowDocumentRepository.findReusableDocuments(projectCode, materialCode);
+        List<Document> documents = documentRepository.findReusableDocuments(projectCode, materialCode);
         return documents.stream()
                 .map(doc -> {
                     long downloadCount = documentAccessLogRepository.countDocumentAccess(doc.getId(), DocumentAccessType.DOWNLOAD);
@@ -471,8 +475,8 @@ public class DocumentServiceImpl implements DocumentService {
         );
     }
 
-    private DocumentSummary convertToEnhancedDocumentSummary(WorkflowDocument document, long downloadCount, LocalDateTime lastAccessedAt) {
-        MaterialWorkflow workflow = document.getWorkflow();
+    private DocumentSummary convertToEnhancedDocumentSummary(Document document, long downloadCount, LocalDateTime lastAccessedAt) {
+        Workflow workflow = document.getWorkflow();
         return new DocumentSummary(
             document.getId(),
             document.getFileName(),
@@ -493,7 +497,7 @@ public class DocumentServiceImpl implements DocumentService {
         );
     }
 
-    private DocumentSummary convertToDocumentSummary(WorkflowDocument document) {
+    private DocumentSummary convertToDocumentSummary(Document document) {
         return new DocumentSummary(
             document.getId(),
             document.getFileName(),

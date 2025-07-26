@@ -324,7 +324,17 @@ const JVCView = () => {
       title: 'Material Code',
       dataIndex: 'materialCode',
       key: 'materialCode',
-      render: (text) => <Text code>{text}</Text>
+      width: 140,
+      render: (text, record) => (
+        <div>
+          <Text code style={{ fontWeight: 'bold' }}>{text}</Text>
+          {record.itemDescription && (
+            <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>
+              {record.itemDescription}
+            </div>
+          )}
+        </div>
+      ),
     },
     {
       title: 'Plant Code',

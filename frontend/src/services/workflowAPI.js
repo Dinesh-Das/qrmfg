@@ -157,5 +157,57 @@ export const workflowAPI = {
         // Don't set Content-Type for FormData
       }
     });
+  },
+
+  // Material name management from ProjectItemMaster
+  updateAllMaterialNamesFromProjectItemMaster: () =>
+    apiRequest('/workflows/update-material-names', {
+      method: 'POST'
+    }),
+
+  updateMaterialNameFromProjectItemMaster: (workflowId) =>
+    apiRequest(`/workflows/${workflowId}/update-material-name`, {
+      method: 'POST'
+    }),
+
+  // Plant Questionnaire endpoints
+  getQuestionnaireTemplate: ({ materialCode, plantCode, templateType = 'PLANT_QUESTIONNAIRE' }) =>
+    apiRequest(`/plant-questionnaire/template?materialCode=${encodeURIComponent(materialCode)}&plantCode=${encodeURIComponent(plantCode)}&templateType=${encodeURIComponent(templateType)}`),
+
+  getCqsData: ({ materialCode, plantCode }) =>
+    apiRequest(`/plant-questionnaire/cqs-data?materialCode=${encodeURIComponent(materialCode)}&plantCode=${encodeURIComponent(plantCode)}`),
+
+  getPlantSpecificData: ({ plantCode, materialCode, blockCode }) =>
+    apiRequest(`/plant-questionnaire/plant-data?plantCode=${encodeURIComponent(plantCode)}&materialCode=${encodeURIComponent(materialCode)}&blockCode=${encodeURIComponent(blockCode)}`),
+
+  getOrCreatePlantSpecificData: ({ plantCode, materialCode, blockCode, workflowId }) =>
+    apiRequest(`/plant-questionnaire/plant-data/init?plantCode=${encodeURIComponent(plantCode)}&materialCode=${encodeURIComponent(materialCode)}&blockCode=${encodeURIComponent(blockCode)}&workflowId=${workflowId}`, {
+      method: 'POST'
+    }),
+
+  savePlantSpecificData: (plantSpecificData, modifiedBy = 'SYSTEM') =>
+    apiRequest(`/plant-questionnaire/plant-data/save?modifiedBy=${encodeURIComponent(modifiedBy)}`, {
+      method: 'POST',
+      body: JSON.stringify(plantSpecificData)
+    }),
+
+  saveDraftPlantResponses: (workflowId, draftData) =>
+    apiRequest(`/plant-questionnaire/draft?workflowId=${workflowId}`, {
+      method: 'POST',
+      body: JSON.stringify(draftData)
+    }),
+
+  submitPlantQuestionnaire: (workflowId, submissionData) =>
+    apiRequest(`/plant-questionnaire/submit?workflowId=${workflowId}`, {
+      method: 'POST',
+      body: JSON.stringify(submissionData)
+    }),
+
+  getPlantQuestionnaireStats: ({ plantCode, materialCode }) => {
+    const params = new URLSearchParams({ plantCode });
+    if (materialCode) {
+      params.append('materialCode', materialCode);
+    }
+    return apiRequest(`/plant-questionnaire/stats?${params.toString()}`);
   }
 };

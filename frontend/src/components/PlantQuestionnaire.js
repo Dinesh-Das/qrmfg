@@ -85,92 +85,132 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
   const [pendingChanges, setPendingChanges] = useState(false);
   const { isMobile, isTablet } = useResponsive();
 
-  // Network status monitoring with enhanced offline handling
-  useEffect(() => {
-    const handleOnline = () => {
-      setIsOffline(false);
-      notification.success({
-        message: 'Connection Restored',
-        description: 'You are back online. Syncing your changes...',
-        icon: <WifiOutlined style={{ color: '#52c41a' }} />,
-        duration: 3
+  // Define questionnaire steps (loaded from backend template)
+  const [questionnaireSteps, setQuestionnaireSteps] = useState([]);
+  const [templateLoading, setTemplateLoading] = useState(true);
+  const [cqsData, setCqsData] = useState({});
+  const [plantSpecificData, setPlantSpecificData] = useState({});
+
+  // Load questionnaire template from backend
+  const loadQuestionnaireTemplate = async () => {
+    try {
+      setTemplateLoading(true);
+      const template = await workflowAPI.getQuestionnaireTemplate({
+        materialCode: workflowData?.materialCode,
+        plantCode: workflowData?.assignedPlant,
+        templateType: 'PLANT_QUESTIONNAIRE'
       });
       
-      if (pendingChanges) {
-        handleSaveDraft(true); // Auto-sync when back online
-        setPendingChanges(false);
-      }
-    };
-    
-    const handleOffline = () => {
-      setIsOffline(true);
-      notification.warning({
-        message: 'Connection Lost',
-        description: 'You are offline. Changes will be saved locally and synced when connection is restored.',
-        icon: <DisconnectOutlined style={{ color: '#fa8c16' }} />,
-        duration: 5
+      // Process template to include CQS auto-populated fields
+      const processedSteps = template.steps.map(step => ({
+        ...step,
+        fields: step.fields.map(field => ({
+          ...field,
+          isCqsAutoPopulated: field.cqsAutoPopulated || false,
+          cqsValue: field.cqsAutoPopulated ? 'Pending IMP' : null,
+          disabled: field.cqsAutoPopulated || field.disabled || false,
+          placeholder: field.cqsAutoPopulated ? 
+            'Auto-populated by CQS (Pending Implementation)' : 
+            field.placeholder
+        }))
+      }));
+      
+      setQuestionnaireSteps(processedSteps);
+      
+      // Load CQS data if available
+      await loadCqsData();
+      
+      // Load plant-specific data
+      await loadPlantSpecificData();
+      
+    } catch (error) {
+      console.error('Failed to load questionnaire template:', error);
+      message.error('Failed to load questionnaire template');
+      // Fallback to default template if backend fails
+      setQuestionnaireSteps(getDefaultTemplate());
+    } finally {
+      setTemplateLoading(false);
+    }
+  };
+
+  // Load CQS auto-populated data
+  const loadCqsData = async () => {
+    try {
+      const cqsResponse = await workflowAPI.getCqsData({
+        materialCode: workflowData?.materialCode,
+        plantCode: workflowData?.assignedPlant
       });
-    };
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, [pendingChanges, handleSaveDraft]);
-
-  // Enhanced keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (event) => {
-      // Ctrl/Cmd + S to save draft
-      if ((event.ctrlKey || event.metaKey) && event.key === 's') {
-        event.preventDefault();
-        handleSaveDraft();
-      }
       
-      // Ctrl/Cmd + Right Arrow to go to next step
-      if ((event.ctrlKey || event.metaKey) && event.key === 'ArrowRight') {
-        event.preventDefault();
-        if (currentStep < questionnaireSteps.length - 1) {
-          handleNext();
+      setCqsData(cqsResponse.data || {});
+      
+      // Update form with CQS data
+      const cqsFormData = {};
+      Object.entries(cqsResponse.data || {}).forEach(([key, value]) => {
+        if (value && value !== 'Pending IMP') {
+          cqsFormData[key] = value;
         }
+      });
+      
+      if (Object.keys(cqsFormData).length > 0) {
+        setFormData(prev => ({ ...prev, ...cqsFormData }));
+        form.setFieldsValue(cqsFormData);
       }
       
-      // Ctrl/Cmd + Left Arrow to go to previous step
-      if ((event.ctrlKey || event.metaKey) && event.key === 'ArrowLeft') {
-        event.preventDefault();
-        if (currentStep > 0) {
-          handlePrevious();
-        }
+    } catch (error) {
+      console.error('Failed to load CQS data:', error);
+      // Don't show error message as CQS data might not be available yet
+    }
+  };
+
+  // Load plant-specific data table
+  const loadPlantSpecificData = async () => {
+    try {
+      const plantData = await workflowAPI.getOrCreatePlantSpecificData({
+        plantCode: workflowData?.assignedPlant,
+        materialCode: workflowData?.materialCode,
+        blockCode: workflowData?.blockCode,
+        workflowId: workflowId
+      });
+      
+      setPlantSpecificData(plantData || {});
+      
+      // If plant data exists, populate form with existing plant inputs
+      if (plantData?.plantInputs) {
+        setFormData(prev => ({ ...prev, ...plantData.plantInputs }));
+        form.setFieldsValue(plantData.plantInputs);
       }
       
-      // F1 to show help/shortcuts
-      if (event.key === 'F1') {
-        event.preventDefault();
-        Modal.info({
-          title: 'Keyboard Shortcuts',
-          content: (
-            <div>
-              <p><strong>Ctrl/Cmd + S:</strong> Save draft</p>
-              <p><strong>Ctrl/Cmd + →:</strong> Next step</p>
-              <p><strong>Ctrl/Cmd + ←:</strong> Previous step</p>
-              <p><strong>Tab:</strong> Navigate between fields</p>
-              <p><strong>Enter:</strong> Submit form or proceed</p>
-              <p><strong>Esc:</strong> Close modals</p>
-            </div>
-          )
-        });
-      }
-    };
+    } catch (error) {
+      console.error('Failed to load plant-specific data:', error);
+    }
+  };
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [currentStep, questionnaireSteps.length, handleSaveDraft, handleNext, handlePrevious]);
+  // Save plant-specific data with composite key
+  const savePlantSpecificData = async (data) => {
+    try {
+      const plantSpecificPayload = {
+        plantCode: workflowData?.assignedPlant,
+        materialCode: workflowData?.materialCode,
+        blockCode: workflowData?.blockCode,
+        workflowId: workflowId,
+        cqsInputs: cqsData,
+        plantInputs: data,
+        totalFields: Object.keys(data).length,
+        completedFields: Object.values(data).filter(value => 
+          value !== null && value !== undefined && value !== ''
+        ).length
+      };
+      
+      await workflowAPI.savePlantSpecificData(plantSpecificPayload, 'current_user');
+      
+    } catch (error) {
+      console.error('Failed to save plant-specific data:', error);
+      throw error;
+    }
+  };
 
-  // Define questionnaire steps
-  const questionnaireSteps = [
+  // Default template fallback
+  const getDefaultTemplate = () => [
     {
       title: 'Basic Information',
       description: 'Material identification and basic properties',
@@ -180,13 +220,19 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
           label: 'Material Name',
           type: 'input',
           required: true,
-          placeholder: 'Enter the full material name'
+          disabled: true,
+          isCqsAutoPopulated: true,
+          cqsValue: 'Pending IMP',
+          placeholder: 'Auto-populated by CQS (Pending Implementation)'
         },
         {
           name: 'materialType',
           label: 'Material Type',
           type: 'select',
           required: true,
+          isCqsAutoPopulated: true,
+          cqsValue: 'Pending IMP',
+          disabled: true,
           options: [
             { value: 'chemical', label: 'Chemical' },
             { value: 'mixture', label: 'Mixture' },
@@ -198,7 +244,10 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
           name: 'casNumber',
           label: 'CAS Number',
           type: 'input',
-          placeholder: 'e.g., 64-17-5'
+          isCqsAutoPopulated: true,
+          cqsValue: 'Pending IMP',
+          disabled: true,
+          placeholder: 'Auto-populated by CQS (Pending Implementation)'
         },
         {
           name: 'supplierName',
@@ -218,6 +267,9 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
           label: 'Physical State',
           type: 'radio',
           required: true,
+          isCqsAutoPopulated: true,
+          cqsValue: 'Pending IMP',
+          disabled: true,
           options: [
             { value: 'solid', label: 'Solid' },
             { value: 'liquid', label: 'Liquid' },
@@ -241,13 +293,19 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
           name: 'boilingPoint',
           label: 'Boiling Point (°C)',
           type: 'input',
-          placeholder: 'Enter boiling point in Celsius'
+          isCqsAutoPopulated: true,
+          cqsValue: 'Pending IMP',
+          disabled: true,
+          placeholder: 'Auto-populated by CQS (Pending Implementation)'
         },
         {
           name: 'meltingPoint',
           label: 'Melting Point (°C)',
           type: 'input',
-          placeholder: 'Enter melting point in Celsius'
+          isCqsAutoPopulated: true,
+          cqsValue: 'Pending IMP',
+          disabled: true,
+          placeholder: 'Auto-populated by CQS (Pending Implementation)'
         }
       ]
     },
@@ -260,6 +318,9 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
           label: 'Hazard Categories',
           type: 'checkbox',
           required: true,
+          isCqsAutoPopulated: true,
+          cqsValue: 'Pending IMP',
+          disabled: true,
           options: [
             { value: 'flammable', label: 'Flammable' },
             { value: 'toxic', label: 'Toxic' },
@@ -274,6 +335,9 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
           label: 'Signal Word',
           type: 'radio',
           required: true,
+          isCqsAutoPopulated: true,
+          cqsValue: 'Pending IMP',
+          disabled: true,
           options: [
             { value: 'danger', label: 'DANGER' },
             { value: 'warning', label: 'WARNING' },
@@ -284,7 +348,10 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
           name: 'hazardStatements',
           label: 'Hazard Statements',
           type: 'textarea',
-          placeholder: 'List all applicable H-statements (e.g., H225, H319)'
+          isCqsAutoPopulated: true,
+          cqsValue: 'Pending IMP',
+          disabled: true,
+          placeholder: 'Auto-populated by CQS (Pending Implementation)'
         }
       ]
     },
@@ -296,12 +363,18 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
           name: 'precautionaryStatements',
           label: 'Precautionary Statements',
           type: 'textarea',
-          placeholder: 'List all applicable P-statements (e.g., P210, P280)'
+          isCqsAutoPopulated: true,
+          cqsValue: 'Pending IMP',
+          disabled: true,
+          placeholder: 'Auto-populated by CQS (Pending Implementation)'
         },
         {
           name: 'personalProtection',
           label: 'Personal Protection Equipment',
           type: 'checkbox',
+          isCqsAutoPopulated: true,
+          cqsValue: 'Pending IMP',
+          disabled: true,
           options: [
             { value: 'gloves', label: 'Protective Gloves' },
             { value: 'eyewear', label: 'Eye Protection' },
@@ -352,6 +425,9 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
           name: 'environmentalHazards',
           label: 'Environmental Hazards',
           type: 'checkbox',
+          isCqsAutoPopulated: true,
+          cqsValue: 'Pending IMP',
+          disabled: true,
           options: [
             { value: 'aquatic_acute', label: 'Acute Aquatic Toxicity' },
             { value: 'aquatic_chronic', label: 'Chronic Aquatic Toxicity' },
@@ -377,6 +453,229 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
     }
   ];
 
+  // Function definitions (moved here to avoid hoisting issues)
+  const handleNext = useCallback(() => {
+    if (currentStep < questionnaireSteps.length - 1) {
+      setCurrentStep(currentStep + 1);
+    }
+  }, [currentStep, questionnaireSteps.length]);
+
+  const handlePrevious = useCallback(() => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  }, [currentStep]);
+
+  const handleStepChange = useCallback((step) => {
+    if (step >= 0 && step < questionnaireSteps.length) {
+      setCurrentStep(step);
+    }
+  }, [questionnaireSteps.length]);
+
+  // Helper function definitions
+  const getStepForField = (fieldName) => {
+    for (let i = 0; i < questionnaireSteps.length; i++) {
+      if (questionnaireSteps[i].fields.some(field => field.name === fieldName)) {
+        return i;
+      }
+    }
+    return 0;
+  };
+
+  const getOverallCompletionPercentage = () => {
+    let totalRequired = 0;
+    let completedRequired = 0;
+
+    questionnaireSteps.forEach((step, index) => {
+      const stepFields = step.fields;
+      const requiredFields = stepFields.filter(field => field.required);
+      const completedRequiredFields = requiredFields.filter(field => {
+        const value = formData[field.name];
+        if (Array.isArray(value)) {
+          return value.length > 0;
+        }
+        return value && value !== '' && value !== null && value !== undefined;
+      });
+
+      totalRequired += requiredFields.length;
+      completedRequired += completedRequiredFields.length;
+    });
+
+    return totalRequired > 0 ? Math.round((completedRequired / totalRequired) * 100) : 0;
+  };
+
+  const handleSaveDraft = useCallback(async (silent = false) => {
+    try {
+      setSaving(true);
+      const currentValues = form.getFieldsValue();
+      const updatedFormData = { ...formData, ...currentValues };
+
+      // Enhanced validation before saving
+      const validatedFormData = {};
+      Object.entries(updatedFormData).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== '') {
+          validatedFormData[key] = value;
+        }
+      });
+
+      // Save to local storage as backup with enhanced metadata
+      const draftKey = `plant_questionnaire_draft_${workflowId}`;
+      const draftData = {
+        formData: validatedFormData,
+        currentStep,
+        timestamp: Date.now(),
+        completedSteps: Array.from(completedSteps),
+        version: '2.0',
+        materialCode: workflowData?.materialCode,
+        materialName: workflowData?.materialName,
+        assignedPlant: workflowData?.assignedPlant,
+        lastSyncAttempt: Date.now(),
+        syncStatus: isOffline ? 'pending' : 'synced',
+        totalFields: Object.keys(validatedFormData).length,
+        completionPercentage: getOverallCompletionPercentage(),
+        sessionId: Date.now()
+      };
+
+      try {
+        localStorage.setItem(draftKey, JSON.stringify(draftData));
+      } catch (localStorageError) {
+        console.warn('Failed to save draft to local storage:', localStorageError);
+      }
+
+      // Save to server if online
+      if (!isOffline) {
+        try {
+          const draftData = {
+            plantCode: workflowData?.assignedPlant,
+            materialCode: workflowData?.materialCode,
+            blockCode: workflowData?.blockCode,
+            responses: updatedFormData,
+            currentStep,
+            completedSteps: Array.from(completedSteps),
+            modifiedBy: 'current_user'
+          };
+
+          await workflowAPI.saveDraftPlantResponses(workflowId, draftData);
+
+          if (!silent) {
+            message.success('Draft saved successfully');
+          }
+        } catch (serverError) {
+          console.error('Failed to save draft to server:', serverError);
+          setPendingChanges(true);
+
+          if (!silent) {
+            message.warning('Draft saved locally. Will sync when connection is restored.');
+          }
+        }
+      } else {
+        setPendingChanges(true);
+        if (!silent) {
+          message.info('Draft saved locally. Will sync when online.');
+        }
+      }
+
+      setFormData(updatedFormData);
+
+      if (onSaveDraft) {
+        onSaveDraft(updatedFormData);
+      }
+    } catch (error) {
+      console.error('Failed to save draft:', error);
+      if (!silent) {
+        message.error('Failed to save draft. Please try again.');
+      }
+    } finally {
+      setSaving(false);
+    }
+  }, [form, formData, workflowId, onSaveDraft, currentStep, completedSteps, isOffline, workflowData]);
+
+  // Network status monitoring with enhanced offline handling
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOffline(false);
+      notification.success({
+        message: 'Connection Restored',
+        description: 'You are back online. Syncing your changes...',
+        icon: <WifiOutlined style={{ color: '#52c41a' }} />,
+        duration: 3
+      });
+
+      if (pendingChanges) {
+        handleSaveDraft(true); // Auto-sync when back online
+        setPendingChanges(false);
+      }
+    };
+
+    const handleOffline = () => {
+      setIsOffline(true);
+      notification.warning({
+        message: 'Connection Lost',
+        description: 'You are offline. Changes will be saved locally and synced when connection is restored.',
+        icon: <DisconnectOutlined style={{ color: '#fa8c16' }} />,
+        duration: 5
+      });
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [pendingChanges, handleSaveDraft]);
+
+  // Enhanced keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      // Ctrl/Cmd + S to save draft
+      if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+        event.preventDefault();
+        handleSaveDraft();
+      }
+
+      // Ctrl/Cmd + Right Arrow to go to next step
+      if ((event.ctrlKey || event.metaKey) && event.key === 'ArrowRight') {
+        event.preventDefault();
+        if (currentStep < questionnaireSteps.length - 1) {
+          handleNext();
+        }
+      }
+
+      // Ctrl/Cmd + Left Arrow to go to previous step
+      if ((event.ctrlKey || event.metaKey) && event.key === 'ArrowLeft') {
+        event.preventDefault();
+        if (currentStep > 0) {
+          handlePrevious();
+        }
+      }
+
+      // F1 to show help/shortcuts
+      if (event.key === 'F1') {
+        event.preventDefault();
+        Modal.info({
+          title: 'Keyboard Shortcuts',
+          content: (
+            <div>
+              <p><strong>Ctrl/Cmd + S:</strong> Save draft</p>
+              <p><strong>Ctrl/Cmd + →:</strong> Next step</p>
+              <p><strong>Ctrl/Cmd + ←:</strong> Previous step</p>
+              <p><strong>Tab:</strong> Navigate between fields</p>
+              <p><strong>Enter:</strong> Submit form or proceed</p>
+              <p><strong>Esc:</strong> Close modals</p>
+            </div>
+          )
+        });
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [currentStep, questionnaireSteps.length, handleNext, handlePrevious]);
+
+
+
   // Load workflow data and existing responses
   useEffect(() => {
     if (workflowId) {
@@ -399,14 +698,14 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
   // Enhanced form validation with field-specific rules
   const getFieldValidationRules = (field) => {
     const rules = [];
-    
+
     if (field.required) {
-      rules.push({ 
-        required: true, 
-        message: `${field.label} is required for MSDS completion` 
+      rules.push({
+        required: true,
+        message: `${field.label} is required for MSDS completion`
       });
     }
-    
+
     // Add specific validation based on field type and name
     switch (field.name) {
       case 'casNumber':
@@ -466,7 +765,7 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
       default:
         break;
     }
-    
+
     return rules;
   };
 
@@ -483,7 +782,7 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
       'boilingPoint': 'Temperature at which the material changes from liquid to gas at standard pressure',
       'meltingPoint': 'Temperature at which the material changes from solid to liquid'
     };
-    
+
     return helpTexts[field.name] || field.help;
   };
 
@@ -493,12 +792,12 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
       try {
         const draftKey = `plant_questionnaire_draft_${workflowId}`;
         const savedDraft = localStorage.getItem(draftKey);
-        
+
         if (savedDraft) {
           const draftData = JSON.parse(savedDraft);
           const draftTimestamp = draftData.timestamp;
           const currentTime = Date.now();
-          
+
           // Only recover if draft is less than 7 days old (extended from 24 hours)
           if (currentTime - draftTimestamp < 7 * 24 * 60 * 60 * 1000) {
             // Enhanced validation of draft data integrity
@@ -510,28 +809,28 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
                   validatedFormData[key] = value;
                 }
               });
-              
+
               setFormData(prev => ({ ...prev, ...validatedFormData }));
               form.setFieldsValue(validatedFormData);
-              
-              if (typeof draftData.currentStep === 'number' && 
-                  draftData.currentStep >= 0 && 
-                  draftData.currentStep < questionnaireSteps.length) {
+
+              if (typeof draftData.currentStep === 'number' &&
+                draftData.currentStep >= 0 &&
+                draftData.currentStep < questionnaireSteps.length) {
                 setCurrentStep(draftData.currentStep);
               }
-              
+
               if (Array.isArray(draftData.completedSteps)) {
                 setCompletedSteps(new Set(draftData.completedSteps));
               }
-              
+
               // Check if there are pending changes to sync
               if (draftData.syncStatus === 'pending') {
                 setPendingChanges(true);
               }
-              
+
               const recoveredFields = Object.keys(validatedFormData).length;
               const draftAge = Math.round((currentTime - draftTimestamp) / (1000 * 60 * 60));
-              
+
               notification.success({
                 message: 'Draft Recovered',
                 description: `${recoveredFields} fields restored from ${draftAge} hours ago. Your progress has been preserved.`,
@@ -584,20 +883,30 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
       setLoading(true);
       const workflow = await workflowAPI.getWorkflow(workflowId);
       setWorkflowData(workflow);
-      
+
+      // Pre-populate material name from workflow data (from ProjectItemMaster)
+      const initialData = {};
+      if (workflow.materialName) {
+        initialData.materialName = workflow.materialName;
+      }
+
       // Load existing responses if any
       if (workflow.responses && workflow.responses.length > 0) {
-        const existingData = {};
+        const existingData = { ...initialData };
         const completed = new Set();
-        
+
         workflow.responses.forEach(response => {
           existingData[response.fieldName] = response.fieldValue;
           completed.add(response.stepNumber);
         });
-        
+
         setFormData(existingData);
         setCompletedSteps(completed);
         form.setFieldsValue(existingData);
+      } else {
+        // Set initial data even if no responses exist
+        setFormData(initialData);
+        form.setFieldsValue(initialData);
       }
     } catch (error) {
       console.error('Failed to load workflow data:', error);
@@ -616,164 +925,14 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
     }
   };
 
-  const handleSaveDraft = useCallback(async (silent = false) => {
-    try {
-      setSaving(true);
-      const currentValues = form.getFieldsValue();
-      const updatedFormData = { ...formData, ...currentValues };
-      
-      // Enhanced validation before saving
-      const validatedFormData = {};
-      Object.entries(updatedFormData).forEach(([key, value]) => {
-        if (value !== null && value !== undefined && value !== '') {
-          validatedFormData[key] = value;
-        }
-      });
-      
-      // Save to local storage as backup with enhanced metadata
-      const draftKey = `plant_questionnaire_draft_${workflowId}`;
-      const draftData = {
-        formData: validatedFormData,
-        currentStep,
-        timestamp: Date.now(),
-        completedSteps: Array.from(completedSteps),
-        version: '2.0', // Updated version for better compatibility
-        materialCode: workflowData?.materialCode,
-        materialName: workflowData?.materialName,
-        assignedPlant: workflowData?.assignedPlant,
-        lastSyncAttempt: Date.now(),
-        syncStatus: isOffline ? 'pending' : 'synced',
-        totalFields: Object.keys(validatedFormData).length,
-        completionPercentage: getOverallCompletionPercentage(),
-        sessionId: Date.now() // Add session tracking
-      };
-      
-      try {
-        localStorage.setItem(draftKey, JSON.stringify(draftData));
-      } catch (localStorageError) {
-        console.warn('Failed to save draft to local storage:', localStorageError);
-        // Try to clear old drafts to make space
-        try {
-          const keys = Object.keys(localStorage);
-          const oldDraftKeys = keys.filter(key => 
-            key.startsWith('plant_questionnaire_draft_') && 
-            key !== draftKey
-          );
-          oldDraftKeys.forEach(key => {
-            try {
-              const oldDraft = JSON.parse(localStorage.getItem(key));
-              // Remove drafts older than 7 days
-              if (Date.now() - oldDraft.timestamp > 7 * 24 * 60 * 60 * 1000) {
-                localStorage.removeItem(key);
-              }
-            } catch (e) {
-              localStorage.removeItem(key); // Remove corrupted entries
-            }
-          });
-          // Try saving again
-          localStorage.setItem(draftKey, JSON.stringify(draftData));
-        } catch (cleanupError) {
-          if (!silent) {
-            message.warning('Local storage is full. Some draft data may not be saved.');
-          }
-        }
-      }
-      
-      // Save to server if online
-      if (!isOffline) {
-        try {
-          const serverData = {
-            responses: Object.entries(updatedFormData).map(([fieldName, fieldValue]) => ({
-              fieldName,
-              fieldValue: typeof fieldValue === 'object' ? JSON.stringify(fieldValue) : String(fieldValue),
-              stepNumber: getStepForField(fieldName)
-            })),
-            currentStep,
-            completedSteps: Array.from(completedSteps),
-            lastModified: new Date().toISOString()
-          };
-          
-          await workflowAPI.saveDraftResponses(workflowId, serverData);
-          
-          // Update local storage to mark as synced
-          draftData.syncStatus = 'synced';
-          draftData.lastSyncAttempt = Date.now();
-          localStorage.setItem(draftKey, JSON.stringify(draftData));
-          
-          if (!silent) {
-            message.success('Draft saved successfully');
-          }
-        } catch (serverError) {
-          console.error('Failed to save draft to server:', serverError);
-          setPendingChanges(true);
-          draftData.syncStatus = 'pending';
-          localStorage.setItem(draftKey, JSON.stringify(draftData));
-          
-          if (!silent) {
-            if (serverError.status === 401) {
-              message.error('Session expired. Please log in again.');
-            } else if (serverError.status >= 500) {
-              message.warning('Server error. Draft saved locally and will sync when server is available.');
-            } else {
-              message.warning('Draft saved locally. Will sync when connection is restored.');
-            }
-          }
-        }
-      } else {
-        setPendingChanges(true);
-        if (!silent) {
-          message.info('Draft saved locally. Will sync when online.');
-        }
-      }
-      
-      setFormData(updatedFormData);
-      
-      if (onSaveDraft) {
-        onSaveDraft(updatedFormData);
-      }
-    } catch (error) {
-      console.error('Failed to save draft:', error);
-      if (!silent) {
-        message.error('Failed to save draft. Please try again.');
-      }
-    } finally {
-      setSaving(false);
-    }
-  }, [form, formData, workflowId, onSaveDraft, currentStep, completedSteps, isOffline, workflowData]);
 
-  const getStepForField = (fieldName) => {
-    for (let i = 0; i < questionnaireSteps.length; i++) {
-      if (questionnaireSteps[i].fields.some(field => field.name === fieldName)) {
-        return i;
-      }
-    }
-    return 0;
-  };
-
-  const handleStepChange = (step) => {
-    // Validate current step before moving
-    const currentStepFields = questionnaireSteps[currentStep].fields.map(field => field.name);
-    
-    form.validateFields(currentStepFields)
-      .then(() => {
-        setCurrentStep(step);
-        setCompletedSteps(prev => new Set([...prev, currentStep]));
-        
-        // Auto-save when moving between steps
-        handleSaveDraft(true);
-      })
-      .catch((errorInfo) => {
-        const errorFields = errorInfo.errorFields.map(field => field.name[0]);
-        message.warning(`Please complete required fields: ${errorFields.join(', ')}`);
-      });
-  };
 
   // Enhanced step completion tracking with validation
   const getStepCompletionStatus = (stepIndex) => {
     const stepFields = questionnaireSteps[stepIndex].fields;
     const requiredFields = stepFields.filter(field => field.required);
     const optionalFields = stepFields.filter(field => !field.required);
-    
+
     const completedRequiredFields = requiredFields.filter(field => {
       const value = formData[field.name];
       if (Array.isArray(value)) {
@@ -781,7 +940,7 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
       }
       return value && value !== '' && value !== null && value !== undefined;
     });
-    
+
     const completedOptionalFields = optionalFields.filter(field => {
       const value = formData[field.name];
       if (Array.isArray(value)) {
@@ -789,11 +948,11 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
       }
       return value && value !== '' && value !== null && value !== undefined;
     });
-    
+
     const stepQueries = queries.filter(q => q.stepNumber === stepIndex);
     const openQueries = stepQueries.filter(q => q.status === 'OPEN');
     const resolvedQueries = stepQueries.filter(q => q.status === 'RESOLVED');
-    
+
     return {
       total: stepFields.length,
       required: requiredFields.length,
@@ -806,43 +965,19 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
       hasResolvedQueries: resolvedQueries.length > 0,
       openQueriesCount: openQueries.length,
       resolvedQueriesCount: resolvedQueries.length,
-      completionPercentage: stepFields.length > 0 ? 
+      completionPercentage: stepFields.length > 0 ?
         Math.round(((completedRequiredFields.length + completedOptionalFields.length) / stepFields.length) * 100) : 100,
-      requiredCompletionPercentage: requiredFields.length > 0 ? 
+      requiredCompletionPercentage: requiredFields.length > 0 ?
         Math.round((completedRequiredFields.length / requiredFields.length) * 100) : 100
     };
   };
 
-  // Calculate overall completion percentage
-  const getOverallCompletionPercentage = () => {
-    let totalRequired = 0;
-    let completedRequired = 0;
-    
-    questionnaireSteps.forEach((step, index) => {
-      const status = getStepCompletionStatus(index);
-      totalRequired += status.required;
-      completedRequired += status.requiredCompleted;
-    });
-    
-    return totalRequired > 0 ? Math.round((completedRequired / totalRequired) * 100) : 0;
-  };
 
-  const handleNext = () => {
-    if (currentStep < questionnaireSteps.length - 1) {
-      handleStepChange(currentStep + 1);
-    }
-  };
-
-  const handlePrevious = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
 
   const handleRaiseQuery = (fieldName) => {
     const field = questionnaireSteps[currentStep].fields.find(f => f.name === fieldName);
     const currentValue = formData[fieldName] || form.getFieldValue(fieldName);
-    
+
     setSelectedField({
       ...field,
       stepNumber: currentStep,
@@ -870,12 +1005,12 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
     setTimeout(() => {
       const fieldElement = document.querySelector(`[data-field-name="${fieldName}"]`);
       if (fieldElement) {
-        fieldElement.scrollIntoView({ 
-          behavior: 'smooth', 
+        fieldElement.scrollIntoView({
+          behavior: 'smooth',
           block: 'center',
           inline: 'nearest'
         });
-        
+
         // Highlight the field briefly
         fieldElement.style.transition = 'background-color 0.3s ease';
         fieldElement.style.backgroundColor = '#f6ffed';
@@ -889,18 +1024,18 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
   // Check for newly resolved queries and auto-scroll
   useEffect(() => {
     if (queries.length > 0) {
-      const resolvedQueriesInCurrentStep = queries.filter(q => 
-        q.stepNumber === currentStep && 
+      const resolvedQueriesInCurrentStep = queries.filter(q =>
+        q.stepNumber === currentStep &&
         q.status === 'RESOLVED' &&
         !q.hasBeenViewed // Add this flag to track if user has seen the resolution
       );
-      
+
       if (resolvedQueriesInCurrentStep.length > 0) {
         const latestResolvedQuery = resolvedQueriesInCurrentStep
           .sort((a, b) => new Date(b.resolvedAt) - new Date(a.resolvedAt))[0];
-        
+
         scrollToResolvedQuery(latestResolvedQuery.fieldName);
-        
+
         // Show notification about resolved query
         notification.success({
           message: 'Query Resolved',
@@ -915,7 +1050,7 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
   const handleSubmit = async () => {
     try {
       setSubmitting(true);
-      
+
       // Check for open queries
       const openQueries = queries.filter(q => q.status === 'OPEN');
       if (openQueries.length > 0) {
@@ -928,7 +1063,7 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
         });
         return;
       }
-      
+
       await proceedWithSubmission();
     } catch (error) {
       console.error('Failed to submit questionnaire:', error);
@@ -946,14 +1081,14 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
 
   const proceedWithSubmission = async () => {
     // Validate all required fields
-    const allRequiredFields = questionnaireSteps.flatMap(step => 
+    const allRequiredFields = questionnaireSteps.flatMap(step =>
       step.fields.filter(field => field.required).map(field => field.name)
     );
-    
+
     await form.validateFields(allRequiredFields);
-    
+
     const finalData = form.getFieldsValue();
-    
+
     // Check completion percentage
     const completionPercentage = getOverallCompletionPercentage();
     if (completionPercentage < 80) {
@@ -967,51 +1102,50 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
           onCancel: () => resolve(false)
         });
       });
-      
+
       if (!proceed) {
         return;
       }
     }
-    
+
     const submissionData = {
-      responses: Object.entries(finalData).map(([fieldName, fieldValue]) => ({
-        fieldName,
-        fieldValue: typeof fieldValue === 'object' ? JSON.stringify(fieldValue) : String(fieldValue),
-        stepNumber: getStepForField(fieldName)
-      })),
+      plantCode: workflowData?.assignedPlant,
+      materialCode: workflowData?.materialCode,
+      blockCode: workflowData?.blockCode,
+      responses: finalData,
       completionPercentage,
-      submittedAt: new Date().toISOString(),
+      submittedBy: 'current_user',
       totalQueries: queries.length,
       openQueries: queries.filter(q => q.status === 'OPEN').length
     };
-    
-    await workflowAPI.submitQuestionnaire(workflowId, submissionData);
-    
+
+    await workflowAPI.submitPlantQuestionnaire(workflowId, submissionData);
+
     // Clear draft data after successful submission
     try {
       localStorage.removeItem(`plant_questionnaire_draft_${workflowId}`);
     } catch (error) {
       console.warn('Failed to clear draft data:', error);
     }
-    
+
     message.success('Questionnaire submitted successfully');
-    
+
     if (onComplete) {
       onComplete(finalData);
     }
   };
 
   const renderField = (field) => {
-    const fieldQueries = queries.filter(q => 
+    const fieldQueries = queries.filter(q =>
       q.fieldName === field.name && q.stepNumber === currentStep
     );
-    
+
     const hasOpenQuery = fieldQueries.some(q => q.status === 'OPEN');
     const hasResolvedQuery = fieldQueries.some(q => q.status === 'RESOLVED');
     const resolvedQuery = fieldQueries.find(q => q.status === 'RESOLVED');
 
     const isFieldCompleted = formData[field.name] && formData[field.name] !== '';
-    
+
     const fieldLabel = (
       <Space>
         {field.label}
@@ -1023,11 +1157,18 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
         )}
         <Tooltip title="Raise a query about this field">
           <Button
-            type="text"
+            type="primary"
             size="small"
             icon={<QuestionCircleOutlined />}
             onClick={() => handleRaiseQuery(field.name)}
-          />
+            style={{ 
+              backgroundColor: '#1890ff',
+              borderColor: '#1890ff',
+              marginLeft: '8px'
+            }}
+          >
+            Query
+          </Button>
         </Tooltip>
         {hasOpenQuery && (
           <Badge status="error" text="Query Open" />
@@ -1042,10 +1183,10 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
     const validationRules = getFieldValidationRules(field);
 
     const helpContent = resolvedQuery ? (
-      <div style={{ 
-        marginTop: 4, 
-        padding: '8px 12px', 
-        backgroundColor: '#f6ffed', 
+      <div style={{
+        marginTop: 4,
+        padding: '8px 12px',
+        backgroundColor: '#f6ffed',
         border: '1px solid #b7eb8f',
         borderRadius: '6px',
         fontSize: '12px'
@@ -1097,14 +1238,14 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
             <Input placeholder={field.placeholder} />
           </Form.Item>
         );
-      
+
       case 'textarea':
         return renderFormItem(
           <Form.Item {...commonProps}>
             <TextArea rows={4} placeholder={field.placeholder} />
           </Form.Item>
         );
-      
+
       case 'select':
         return renderFormItem(
           <Form.Item {...commonProps}>
@@ -1117,7 +1258,7 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
             </Select>
           </Form.Item>
         );
-      
+
       case 'radio':
         return renderFormItem(
           <Form.Item {...commonProps}>
@@ -1130,7 +1271,7 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
             </Radio.Group>
           </Form.Item>
         );
-      
+
       case 'checkbox':
         return renderFormItem(
           <Form.Item {...commonProps} valuePropName="checked">
@@ -1143,7 +1284,7 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
             </Checkbox.Group>
           </Form.Item>
         );
-      
+
       default:
         return null;
     }
@@ -1181,7 +1322,7 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
             <MaterialContextPanel workflowData={workflowData} />
           </Col>
         )}
-        
+
         {/* Main Questionnaire */}
         <Col xs={24} lg={!isMobile ? 16 : 24}>
           <Card
@@ -1227,7 +1368,7 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
                           resolvedQueries: stepQueries.filter(q => q.status === 'RESOLVED').length
                         };
                       });
-                      
+
                       Modal.info({
                         title: 'Questionnaire Summary',
                         width: 600,
@@ -1237,9 +1378,9 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
                               <Text strong>Overall Progress: {getOverallCompletionPercentage()}%</Text>
                             </div>
                             {summaryData.map(step => (
-                              <div key={step.step} style={{ 
-                                marginBottom: 12, 
-                                padding: '8px 12px', 
+                              <div key={step.step} style={{
+                                marginBottom: 12,
+                                padding: '8px 12px',
                                 backgroundColor: step.percentage === 100 ? '#f6ffed' : '#fff7e6',
                                 border: `1px solid ${step.percentage === 100 ? '#b7eb8f' : '#ffd591'}`,
                                 borderRadius: '4px'
@@ -1376,7 +1517,7 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
                   const stepStatus = getStepCompletionStatus(index);
                   const hasOpenQueries = queries.some(q => q.stepNumber === index && q.status === 'OPEN');
                   const hasResolvedQueries = queries.some(q => q.stepNumber === index && q.status === 'RESOLVED');
-                  
+
                   let stepIcon = undefined;
                   if (stepStatus.isComplete) {
                     stepIcon = <CheckCircleOutlined style={{ color: '#52c41a' }} />;
@@ -1385,7 +1526,7 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
                   } else if (hasResolvedQueries) {
                     stepIcon = <QuestionCircleOutlined style={{ color: '#1890ff' }} />;
                   }
-                  
+
                   return (
                     <Step
                       key={index}
@@ -1407,7 +1548,7 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
                       }
                       status={
                         stepStatus.isComplete ? 'finish' :
-                        index === currentStep ? 'process' : 'wait'
+                          index === currentStep ? 'process' : 'wait'
                       }
                       icon={stepIcon}
                     />
@@ -1445,8 +1586,8 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
                       {/* Mobile step navigation */}
                       <div style={{ marginTop: 8 }}>
                         <Space>
-                          <Button 
-                            size="small" 
+                          <Button
+                            size="small"
                             disabled={currentStep === 0}
                             onClick={handlePrevious}
                           >
@@ -1455,8 +1596,8 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
                           <Text style={{ fontSize: '11px' }}>
                             {currentStep + 1} / {questionnaireSteps.length}
                           </Text>
-                          <Button 
-                            size="small" 
+                          <Button
+                            size="small"
                             disabled={currentStep === questionnaireSteps.length - 1}
                             onClick={handleNext}
                           >
@@ -1506,7 +1647,7 @@ const PlantQuestionnaire = ({ workflowId, onComplete, onSaveDraft }) => {
                   Previous
                 </Button>
               </Col>
-              
+
               <Col>
                 <Space>
                   {currentStep === questionnaireSteps.length - 1 ? (

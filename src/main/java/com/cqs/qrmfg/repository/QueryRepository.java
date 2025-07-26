@@ -16,11 +16,14 @@ import java.util.List;
 public interface QueryRepository extends JpaRepository<Query, Long> {
     
     // Basic finders
-    List<Query> findByWorkflow_Id(Long workflowId);
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q JOIN FETCH q.workflow WHERE q.workflow.id = :workflowId ORDER BY q.createdAt DESC")
+    List<Query> findByWorkflow_Id(@Param("workflowId") Long workflowId);
     
-    List<Query> findByAssignedTeamAndStatus(QueryTeam assignedTeam, QueryStatus status);
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q JOIN FETCH q.workflow WHERE q.assignedTeam = :assignedTeam AND q.status = :status ORDER BY q.createdAt DESC")
+    List<Query> findByAssignedTeamAndStatus(@Param("assignedTeam") QueryTeam assignedTeam, @Param("status") QueryStatus status);
     
-    List<Query> findByStatusAndAssignedTeam(QueryStatus status, QueryTeam assignedTeam);
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q JOIN FETCH q.workflow WHERE q.status = :status AND q.assignedTeam = :assignedTeam ORDER BY q.createdAt DESC")
+    List<Query> findByStatusAndAssignedTeam(@Param("status") QueryStatus status, @Param("assignedTeam") QueryTeam assignedTeam);
     
     Page<Query> findByAssignedTeamOrderByCreatedAtDesc(QueryTeam assignedTeam, Pageable pageable);
     
@@ -57,33 +60,49 @@ public interface QueryRepository extends JpaRepository<Query, Long> {
         @Param("materialCode") String materialCode);
     
     // Team workload analysis
-    @org.springframework.data.jpa.repository.Query(value = "SELECT assigned_team, COUNT(*) as openCount, AVG(EXTRACT(DAY FROM (CURRENT_TIMESTAMP - created_at)) * 24 + EXTRACT(HOUR FROM (CURRENT_TIMESTAMP - created_at))) as avgAgeHours FROM qrmfg_queries WHERE query_status = 'OPEN' GROUP BY assigned_team", nativeQuery = true)
+    @org.springframework.data.jpa.repository.Query(value = "SELECT assigned_team, COUNT(*) as openCount, AVG(EXTRACT(DAY FROM (CURRENT_TIMESTAMP - created_at)) * 24 + EXTRACT(HOUR FROM (CURRENT_TIMESTAMP - created_at))) as avgAgeHours FROM QRMFG_QUERIES WHERE query_status = 'OPEN' GROUP BY assigned_team", nativeQuery = true)
     List<Object[]> getTeamWorkloadMetrics();
     
     // Additional methods needed by services
     Long countDistinctWorkflow_IdByStatus(QueryStatus status);
     Long countByStatus(QueryStatus status);
     Long countByStatusAndCreatedAtBefore(QueryStatus status, LocalDateTime dateTime);
-    List<Query> findByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
-    List<Query> findByCreatedAtAfter(LocalDateTime dateTime);
-    List<Query> findByCreatedAtBefore(LocalDateTime dateTime);
-    List<Query> findByStatusAndResolvedAtBetween(QueryStatus status, LocalDateTime start, LocalDateTime end);
-    List<Query> findByStatusAndResolvedAtAfter(QueryStatus status, LocalDateTime dateTime);
-    List<Query> findByStatusAndResolvedAtBefore(QueryStatus status, LocalDateTime dateTime);
-    List<Query> findByStatus(QueryStatus status);
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q JOIN FETCH q.workflow WHERE q.createdAt BETWEEN :start AND :end ORDER BY q.createdAt DESC")
+    List<Query> findByCreatedAtBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+    
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q JOIN FETCH q.workflow WHERE q.createdAt > :dateTime ORDER BY q.createdAt DESC")
+    List<Query> findByCreatedAtAfter(@Param("dateTime") LocalDateTime dateTime);
+    
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q JOIN FETCH q.workflow WHERE q.createdAt < :dateTime ORDER BY q.createdAt DESC")
+    List<Query> findByCreatedAtBefore(@Param("dateTime") LocalDateTime dateTime);
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q JOIN FETCH q.workflow WHERE q.status = :status AND q.resolvedAt BETWEEN :start AND :end ORDER BY q.resolvedAt DESC")
+    List<Query> findByStatusAndResolvedAtBetween(@Param("status") QueryStatus status, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+    
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q JOIN FETCH q.workflow WHERE q.status = :status AND q.resolvedAt > :dateTime ORDER BY q.resolvedAt DESC")
+    List<Query> findByStatusAndResolvedAtAfter(@Param("status") QueryStatus status, @Param("dateTime") LocalDateTime dateTime);
+    
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q JOIN FETCH q.workflow WHERE q.status = :status AND q.resolvedAt < :dateTime ORDER BY q.resolvedAt DESC")
+    List<Query> findByStatusAndResolvedAtBefore(@Param("status") QueryStatus status, @Param("dateTime") LocalDateTime dateTime);
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q JOIN FETCH q.workflow WHERE q.status = :status ORDER BY q.createdAt DESC")
+    List<Query> findByStatus(@Param("status") QueryStatus status);
     
     @org.springframework.data.jpa.repository.Query("SELECT q.assignedTeam, COUNT(q) FROM Query q WHERE q.status = 'OPEN' GROUP BY q.assignedTeam")
     List<Object[]> countOpenQueriesByTeamGrouped();
     
-    List<Query> findByRaisedBy(String raisedBy);
-    List<Query> findByResolvedBy(String resolvedBy);
-    List<Query> findByWorkflow_MaterialCode(String materialCode);
-    List<Query> findByAssignedTeam(QueryTeam assignedTeam);
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q JOIN FETCH q.workflow WHERE q.raisedBy = :raisedBy ORDER BY q.createdAt DESC")
+    List<Query> findByRaisedBy(@Param("raisedBy") String raisedBy);
     
-    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q WHERE q.assignedTeam = :team AND q.status IN ('OPEN', 'IN_PROGRESS') ORDER BY q.createdAt DESC")
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q JOIN FETCH q.workflow WHERE q.resolvedBy = :resolvedBy ORDER BY q.resolvedAt DESC")
+    List<Query> findByResolvedBy(@Param("resolvedBy") String resolvedBy);
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q JOIN FETCH q.workflow WHERE q.workflow.materialCode = :materialCode ORDER BY q.createdAt DESC")
+    List<Query> findByWorkflow_MaterialCode(@Param("materialCode") String materialCode);
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q JOIN FETCH q.workflow WHERE q.assignedTeam = :assignedTeam ORDER BY q.createdAt DESC")
+    List<Query> findByAssignedTeam(@Param("assignedTeam") QueryTeam assignedTeam);
+    
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q JOIN FETCH q.workflow WHERE q.assignedTeam = :team AND q.status = 'OPEN' ORDER BY q.createdAt DESC")
     List<Query> findTeamInboxQueries(@Param("team") QueryTeam team);
     
-    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q WHERE q.assignedTeam = :team AND q.status = 'RESOLVED' ORDER BY q.resolvedAt DESC")
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q JOIN FETCH q.workflow WHERE q.assignedTeam = :team AND q.status = 'RESOLVED' ORDER BY q.resolvedAt DESC")
     List<Query> findTeamResolvedQueries(@Param("team") QueryTeam team);
     
     @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q WHERE q.raisedBy = :username ORDER BY q.createdAt DESC")
@@ -92,13 +111,16 @@ public interface QueryRepository extends JpaRepository<Query, Long> {
     @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q WHERE q.resolvedBy = :username ORDER BY q.resolvedAt DESC")
     List<Query> findQueriesResolvedByUser(@Param("username") String username);
     
-    List<Query> findByWorkflow_IdAndStatus(Long workflowId, QueryStatus status);
-    List<Query> findByPriorityLevel(String priorityLevel);
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q JOIN FETCH q.workflow WHERE q.workflow.id = :workflowId AND q.status = :status ORDER BY q.createdAt DESC")
+    List<Query> findByWorkflow_IdAndStatus(@Param("workflowId") Long workflowId, @Param("status") QueryStatus status);
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q JOIN FETCH q.workflow WHERE q.priorityLevel = :priorityLevel ORDER BY q.createdAt DESC")
+    List<Query> findByPriorityLevel(@Param("priorityLevel") String priorityLevel);
     
     @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q WHERE q.createdAt >= :dateTime ORDER BY q.createdAt DESC")
     List<Query> findRecentQueries(@Param("dateTime") LocalDateTime dateTime);
     
-    List<Query> findByResolvedAtBetween(LocalDateTime start, LocalDateTime end);
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q JOIN FETCH q.workflow WHERE q.resolvedAt BETWEEN :start AND :end ORDER BY q.resolvedAt DESC")
+    List<Query> findByResolvedAtBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
     
     @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q WHERE q.status = 'OPEN' AND q.createdAt < :cutoffTime")
     List<Query> findQueriesOverSLA(@Param("cutoffTime") LocalDateTime cutoffTime);
@@ -114,24 +136,30 @@ public interface QueryRepository extends JpaRepository<Query, Long> {
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(q) FROM Query q WHERE q.status = 'OPEN' AND q.createdAt < :cutoffTime")
     Long countOverdueQueries(@Param("cutoffTime") LocalDateTime cutoffTime);
     
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(q) FROM Query q WHERE q.status = 'OPEN' AND q.createdAt < :cutoffTime AND q.assignedTeam = :team")
+    Long countOverdueQueriesByTeam(@Param("team") QueryTeam team, @Param("cutoffTime") LocalDateTime cutoffTime);
+    
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(q) FROM Query q WHERE TRUNC(q.createdAt) = TRUNC(CURRENT_DATE)")
     Long countQueriesCreatedToday();
     
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(q) FROM Query q WHERE TRUNC(q.resolvedAt) = TRUNC(CURRENT_DATE) AND q.status = 'RESOLVED'")
     Long countQueriesResolvedToday();
     
-    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q WHERE q.status IN ('OPEN', 'IN_PROGRESS') ORDER BY q.createdAt ASC")
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(q) FROM Query q WHERE TRUNC(q.resolvedAt) = TRUNC(CURRENT_DATE) AND q.status = 'RESOLVED' AND q.assignedTeam = :team")
+    Long countQueriesResolvedTodayByTeam(@Param("team") QueryTeam team);
+    
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q JOIN FETCH q.workflow WHERE q.status = 'OPEN' ORDER BY q.createdAt ASC")
     List<Query> findPendingQueriesForDashboard();
     
-    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q WHERE q.priorityLevel = 'HIGH' AND q.status = 'OPEN' ORDER BY q.createdAt ASC")
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q JOIN FETCH q.workflow WHERE q.priorityLevel = 'HIGH' AND q.status = 'OPEN' ORDER BY q.createdAt ASC")
     List<Query> findHighPriorityQueries();
     
     @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q WHERE q.status = 'OPEN' AND q.createdAt < :cutoffTime ORDER BY q.createdAt ASC")
     List<Query> findQueriesNeedingAttention(@Param("cutoffTime") LocalDateTime cutoffTime);
     
-    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q WHERE q.workflow.id = :workflowId AND q.status IN ('OPEN', 'IN_PROGRESS')")
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM Query q JOIN FETCH q.workflow WHERE q.workflow.id = :workflowId AND q.status = 'OPEN'")
     List<Query> findOpenQueriesByWorkflow(@Param("workflowId") Long workflowId);
     
-    @org.springframework.data.jpa.repository.Query("SELECT COUNT(q) > 0 FROM Query q WHERE q.workflow.id = :workflowId AND q.status IN ('OPEN', 'IN_PROGRESS')")
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(q) > 0 FROM Query q WHERE q.workflow.id = :workflowId AND q.status = 'OPEN'")
     Boolean hasWorkflowOpenQueries(@Param("workflowId") Long workflowId);
 }

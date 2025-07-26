@@ -4,11 +4,11 @@ import javax.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "qrmfg_notification_preferences")
+@Table(name = "QRMFG_NOTIFICATIONS")
 public class NotificationPreference {
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "notification_pref_seq")
-    @SequenceGenerator(name = "notification_pref_seq", sequenceName = "NOTIFICATION_PREF_SEQ", allocationSize = 1)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "notifications_seq")
+    @SequenceGenerator(name = "notifications_seq", sequenceName = "QRMFG_NOTIFICATIONS_SEQ", allocationSize = 1)
     private Long id;
 
     @Column(name = "username", nullable = false, length = 100)

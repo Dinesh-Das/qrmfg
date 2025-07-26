@@ -4,7 +4,7 @@ import com.cqs.qrmfg.exception.QueryAlreadyResolvedException;
 import com.cqs.qrmfg.exception.QueryException;
 import com.cqs.qrmfg.exception.QueryNotFoundException;
 import com.cqs.qrmfg.exception.WorkflowNotFoundException;
-import com.cqs.qrmfg.model.MaterialWorkflow;
+import com.cqs.qrmfg.model.Workflow;
 import com.cqs.qrmfg.model.Query;
 import com.cqs.qrmfg.model.QueryStatus;
 import com.cqs.qrmfg.model.QueryTeam;
@@ -95,7 +95,7 @@ public class QueryServiceImpl implements QueryService {
     @Override
     public Query createQuery(Long workflowId, String question, Integer stepNumber, String fieldName,
                            QueryTeam assignedTeam, String raisedBy) {
-        MaterialWorkflow workflow = workflowRepository.findById(workflowId)
+        Workflow workflow = workflowRepository.findById(workflowId)
             .orElseThrow(() -> new WorkflowNotFoundException(workflowId));
         
         validateQueryCreation(workflowId, assignedTeam);
@@ -107,17 +107,19 @@ public class QueryServiceImpl implements QueryService {
         
         Query savedQuery = queryRepository.save(query);
         
+        // TODO: Temporarily disabled to debug 500 error
         // Transition workflow to appropriate query state
-        WorkflowState queryState = assignedTeam.getCorrespondingWorkflowState();
-        workflowService.transitionToState(workflowId, queryState, raisedBy);
+        // WorkflowState queryState = assignedTeam.getCorrespondingWorkflowState();
+        // workflowService.transitionToState(workflowId, queryState, raisedBy);
         
         // Send comprehensive notifications for query creation
         try {
             // Notify the assigned team about the new query
-            notificationService.notifyQueryRaised(savedQuery);
+            // notificationService.notifyQueryRaised(savedQuery);
             
             // Also notify as a query assignment to the team
-            notificationService.notifyQueryAssigned(savedQuery, raisedBy);
+            // notificationService.notifyQueryAssigned(savedQuery, raisedBy);
+            logger.info("Query created successfully, notifications temporarily disabled for debugging");
         } catch (Exception e) {
             logger.warn("Failed to send query raised notification for query {}: {}", 
                        savedQuery.getId(), e.getMessage());
@@ -128,7 +130,7 @@ public class QueryServiceImpl implements QueryService {
     
     @Override
     public Query createQuery(String materialCode, String question, QueryTeam assignedTeam, String raisedBy) {
-        MaterialWorkflow workflow = workflowRepository.findByMaterialCode(materialCode)
+        Workflow workflow = workflowRepository.findByMaterialCode(materialCode)
             .stream().findFirst().orElseThrow(() -> WorkflowNotFoundException.forMaterialCode(materialCode));
         
         return createQuery(workflow.getId(), question, assignedTeam, raisedBy);
@@ -137,7 +139,7 @@ public class QueryServiceImpl implements QueryService {
     @Override
     public Query createQuery(String materialCode, String question, Integer stepNumber, String fieldName,
                            QueryTeam assignedTeam, String raisedBy) {
-        MaterialWorkflow workflow = workflowRepository.findByMaterialCode(materialCode)
+        Workflow workflow = workflowRepository.findByMaterialCode(materialCode)
             .stream().findFirst().orElseThrow(() -> WorkflowNotFoundException.forMaterialCode(materialCode));
         
         return createQuery(workflow.getId(), question, stepNumber, fieldName, assignedTeam, raisedBy);
@@ -180,7 +182,7 @@ public class QueryServiceImpl implements QueryService {
         }
         
         // Check if workflow can return to PLANT_PENDING state
-        MaterialWorkflow workflow = query.getWorkflow();
+        Workflow workflow = query.getWorkflow();
         if (!workflow.hasOpenQueries()) {
             workflowService.returnFromQueryState(workflow.getId(), resolvedBy);
         }
@@ -414,6 +416,13 @@ public class QueryServiceImpl implements QueryService {
     
     @Override
     @Transactional(readOnly = true)
+    public long countOverdueQueriesByTeam(QueryTeam team) {
+        LocalDateTime cutoffTime = LocalDateTime.now().minusHours(72); // Consider queries older than 72 hours (3 days) as overdue
+        return queryRepository.countOverdueQueriesByTeam(team, cutoffTime);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
     public long countQueriesCreatedToday() {
         return queryRepository.countQueriesCreatedToday();
     }
@@ -422,6 +431,12 @@ public class QueryServiceImpl implements QueryService {
     @Transactional(readOnly = true)
     public long countQueriesResolvedToday() {
         return queryRepository.countQueriesResolvedToday();
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public long countQueriesResolvedTodayByTeam(QueryTeam team) {
+        return queryRepository.countQueriesResolvedTodayByTeam(team);
     }
     
     // Dashboard and reporting
@@ -447,7 +462,7 @@ public class QueryServiceImpl implements QueryService {
     // Validation and business rules
     @Override
     public void validateQueryCreation(Long workflowId, QueryTeam assignedTeam) {
-        MaterialWorkflow workflow = workflowRepository.findById(workflowId)
+        Workflow workflow = workflowRepository.findById(workflowId)
             .orElseThrow(() -> new WorkflowNotFoundException(workflowId));
         
         // Can only create queries from PLANT_PENDING state

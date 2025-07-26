@@ -1,6 +1,6 @@
 package com.cqs.qrmfg.service;
 
-import com.cqs.qrmfg.model.MaterialWorkflow;
+import com.cqs.qrmfg.model.Workflow;
 import com.cqs.qrmfg.model.WorkflowState;
 import java.util.List;
 import java.util.Optional;
@@ -8,58 +8,62 @@ import java.util.Optional;
 public interface WorkflowService {
     
     // Basic CRUD operations
-    MaterialWorkflow save(MaterialWorkflow workflow);
-    MaterialWorkflow update(MaterialWorkflow workflow);
+    Workflow save(Workflow workflow);
+    Workflow update(Workflow workflow);
     void delete(Long id);
-    Optional<MaterialWorkflow> findById(Long id);
-    Optional<MaterialWorkflow> findByMaterialCode(String materialCode);
-    List<MaterialWorkflow> findAll();
+    Optional<Workflow> findById(Long id);
+    Optional<Workflow> findByMaterialCode(String materialCode);
+    List<Workflow> findAll();
     
     // Workflow creation
-    MaterialWorkflow initiateWorkflow(String materialCode, String materialName, String materialDescription, 
-                                    String assignedPlant, String initiatedBy);
-    MaterialWorkflow initiateWorkflow(String materialCode, String assignedPlant, String initiatedBy);
+    Workflow initiateWorkflow(String materialCode, String materialName, String materialDescription, 
+                            String assignedPlant, String initiatedBy);
+    Workflow initiateWorkflow(String materialCode, String assignedPlant, String initiatedBy);
     
     // Enhanced workflow creation with project/material/plant/block structure
-    MaterialWorkflow initiateEnhancedWorkflow(String projectCode, String materialCode, String plantCode, 
-                                            String blockId, String initiatedBy);
+    Workflow initiateEnhancedWorkflow(String projectCode, String materialCode, String plantCode, 
+                                    String blockId, String initiatedBy);
+    
+    // Material name management from ProjectItemMaster
+    void updateMaterialNamesFromProjectItemMaster();
+    Workflow updateMaterialNameFromProjectItemMaster(Long workflowId);
     
     // State transition operations
-    MaterialWorkflow transitionToState(Long workflowId, WorkflowState newState, String updatedBy);
-    MaterialWorkflow transitionToState(String materialCode, WorkflowState newState, String updatedBy);
+    Workflow transitionToState(Long workflowId, WorkflowState newState, String updatedBy);
+    Workflow transitionToState(String materialCode, WorkflowState newState, String updatedBy);
     boolean canTransitionTo(Long workflowId, WorkflowState newState);
     boolean canTransitionTo(String materialCode, WorkflowState newState);
     
     // Specific workflow actions
-    MaterialWorkflow extendToPlant(Long workflowId, String updatedBy);
-    MaterialWorkflow extendToPlant(String materialCode, String updatedBy);
-    MaterialWorkflow completeWorkflow(Long workflowId, String updatedBy);
-    MaterialWorkflow completeWorkflow(String materialCode, String updatedBy);
-    MaterialWorkflow moveToQueryState(Long workflowId, WorkflowState queryState, String updatedBy);
-    MaterialWorkflow returnFromQueryState(Long workflowId, String updatedBy);
+    Workflow extendToPlant(Long workflowId, String updatedBy);
+    Workflow extendToPlant(String materialCode, String updatedBy);
+    Workflow completeWorkflow(Long workflowId, String updatedBy);
+    Workflow completeWorkflow(String materialCode, String updatedBy);
+    Workflow moveToQueryState(Long workflowId, WorkflowState queryState, String updatedBy);
+    Workflow returnFromQueryState(Long workflowId, String updatedBy);
     
     // Query-based operations
-    List<MaterialWorkflow> findByState(WorkflowState state);
-    List<MaterialWorkflow> findByPlantCode(String plantCode);
-    List<MaterialWorkflow> findByInitiatedBy(String username);
-    List<MaterialWorkflow> findPendingWorkflows();
-    List<MaterialWorkflow> findOverdueWorkflows();
-    List<MaterialWorkflow> findWorkflowsWithOpenQueries();
+    List<Workflow> findByState(WorkflowState state);
+    List<Workflow> findByPlantCode(String plantCode);
+    List<Workflow> findByInitiatedBy(String username);
+    List<Workflow> findPendingWorkflows();
+    List<Workflow> findOverdueWorkflows();
+    List<Workflow> findWorkflowsWithOpenQueries();
     
     // Dashboard and reporting
     long countByState(WorkflowState state);
     long countOverdueWorkflows();
     long countWorkflowsWithOpenQueries();
-    List<MaterialWorkflow> findRecentlyCreated(int days);
-    List<MaterialWorkflow> findRecentlyCompleted(int days);
+    List<Workflow> findRecentlyCreated(int days);
+    List<Workflow> findRecentlyCompleted(int days);
     
     // Validation and business rules
-    void validateStateTransition(MaterialWorkflow workflow, WorkflowState newState);
-    void validateWorkflowCompletion(MaterialWorkflow workflow);
+    void validateStateTransition(Workflow workflow, WorkflowState newState);
+    void validateWorkflowCompletion(Workflow workflow);
     boolean isWorkflowReadyForCompletion(Long workflowId);
     boolean isWorkflowReadyForCompletion(String materialCode);
     
     // Duplicate checking
-    Optional<MaterialWorkflow> findExistingWorkflow(String projectCode, String materialCode, String plantCode, String blockId);
+    Optional<Workflow> findExistingWorkflow(String projectCode, String materialCode, String plantCode, String blockId);
     boolean workflowExists(String projectCode, String materialCode, String plantCode, String blockId);
 }

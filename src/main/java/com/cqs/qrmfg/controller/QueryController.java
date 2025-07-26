@@ -11,6 +11,8 @@ import com.cqs.qrmfg.model.QueryTeam;
 import com.cqs.qrmfg.model.User;
 import com.cqs.qrmfg.service.QueryService;
 import com.cqs.qrmfg.util.QueryMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -28,6 +30,8 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/qrmfg/api/v1/queries")
 public class QueryController {
+
+    private static final Logger logger = LoggerFactory.getLogger(QueryController.class);
 
     @Autowired
     private QueryService queryService;
@@ -60,26 +64,36 @@ public class QueryController {
             @Valid @RequestBody QueryCreateRequest request,
             Authentication authentication) {
         
-        String raisedBy = getCurrentUsername(authentication);
-        
-        Query query = queryService.createQuery(
-            workflowId,
-            request.getQuestion(),
-            request.getStepNumber(),
-            request.getFieldName(),
-            request.getAssignedTeam(),
-            raisedBy
-        );
-        
-        if (request.getPriorityLevel() != null) {
-            query.setPriorityLevel(request.getPriorityLevel());
+        try {
+            logger.info("Creating query for workflow {} with request: {}", workflowId, request);
+            
+            String raisedBy = getCurrentUsername(authentication);
+            logger.debug("Query raised by user: {}", raisedBy);
+            
+            Query query = queryService.createQuery(
+                workflowId,
+                request.getQuestion(),
+                request.getStepNumber(),
+                request.getFieldName(),
+                request.getAssignedTeam(),
+                raisedBy
+            );
+            
+            if (request.getPriorityLevel() != null) {
+                query.setPriorityLevel(request.getPriorityLevel());
+            }
+            if (request.getQueryCategory() != null) {
+                query.setQueryCategory(request.getQueryCategory());
+            }
+            
+            Query savedQuery = queryService.save(query);
+            logger.info("Successfully created query with ID: {}", savedQuery.getId());
+            
+            return ResponseEntity.status(HttpStatus.CREATED).body(savedQuery);
+        } catch (Exception e) {
+            logger.error("Failed to create query for workflow {}: {}", workflowId, e.getMessage(), e);
+            throw e; // Re-throw to let the exception handler deal with it
         }
-        if (request.getQueryCategory() != null) {
-            query.setQueryCategory(request.getQueryCategory());
-        }
-        
-        Query savedQuery = queryService.save(query);
-        return ResponseEntity.status(HttpStatus.CREATED).body(savedQuery);
     }
 
     @PostMapping("/material/{materialCode}")
@@ -244,12 +258,19 @@ public class QueryController {
     @PreAuthorize("hasRole('CQS_USER') or hasRole('TECH_USER') or hasRole('JVC_USER') or hasRole('ADMIN')")
     public ResponseEntity<List<QuerySummaryDto>> getTeamInbox(@PathVariable String team) {
         try {
+            logger.info("Loading inbox for team: {}", team);
             QueryTeam queryTeam = QueryTeam.valueOf(team);
+            
             List<Query> queries = queryService.findOpenQueriesForTeam(queryTeam);
+            logger.debug("Found {} queries for team {}", queries.size(), team);
             List<QuerySummaryDto> queryDtos = queryMapper.toSummaryDtoList(queries);
             return ResponseEntity.ok(queryDtos);
         } catch (IllegalArgumentException e) {
+            logger.error("Invalid team name: {}", team, e);
             return ResponseEntity.badRequest().build();
+        } catch (Exception e) {
+            logger.error("Failed to load inbox for team {}: {}", team, e.getMessage(), e);
+            throw e; // Re-throw to let the exception handler deal with it
         }
     }
 
@@ -387,6 +408,18 @@ public class QueryController {
         return ResponseEntity.ok(count);
     }
 
+    @GetMapping("/stats/overdue-count/{team}")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<Long> getOverdueQueriesCountByTeam(@PathVariable String team) {
+        try {
+            QueryTeam queryTeam = QueryTeam.valueOf(team);
+            long count = queryService.countOverdueQueriesByTeam(queryTeam);
+            return ResponseEntity.ok(count);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
     @GetMapping("/stats/created-today")
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<Long> getQueriesCreatedToday() {
@@ -399,6 +432,18 @@ public class QueryController {
     public ResponseEntity<Long> getQueriesResolvedToday() {
         long count = queryService.countQueriesResolvedToday();
         return ResponseEntity.ok(count);
+    }
+
+    @GetMapping("/stats/resolved-today/{team}")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<Long> getQueriesResolvedTodayByTeam(@PathVariable String team) {
+        try {
+            QueryTeam queryTeam = QueryTeam.valueOf(team);
+            long count = queryService.countQueriesResolvedTodayByTeam(queryTeam);
+            return ResponseEntity.ok(count);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     @GetMapping("/stats/avg-resolution-time/{team}")

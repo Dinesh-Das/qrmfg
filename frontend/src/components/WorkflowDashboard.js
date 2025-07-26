@@ -91,16 +91,20 @@ const WorkflowDashboard = ({ onWorkflowSelect }) => {
         title: 'Material Code',
         dataIndex: 'materialCode',
         key: 'materialCode',
-        width: isMobile ? 100 : 120,
+        width: isMobile ? 120 : 140,
         fixed: isMobile ? 'left' : false,
+        render: (text, record) => (
+          <div>
+            <div style={{ fontWeight: 'bold' }}>{text}</div>
+            {record.itemDescription && (
+              <div style={{ fontSize: '12px', color: '#666' }}>
+                {record.itemDescription}
+              </div>
+            )}
+          </div>
+        ),
       },
-      {
-        title: 'Material Name',
-        dataIndex: 'materialName',
-        key: 'materialName',
-        ellipsis: true,
-        responsive: ['md'],
-      },
+
       {
         title: 'State',
         dataIndex: 'currentState',

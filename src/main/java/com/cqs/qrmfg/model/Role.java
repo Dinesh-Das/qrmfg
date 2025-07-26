@@ -10,11 +10,11 @@ import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 
 @Entity
-@Table(name = "qrmfg_roles")
+@Table(name = "QRMFG_ROLES")
 public class Role {
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "role_seq")
-    @SequenceGenerator(name = "role_seq", sequenceName = "ROLE_SEQ", allocationSize = 1)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "roles_seq")
+    @SequenceGenerator(name = "roles_seq", sequenceName = "QRMFG_ROLES_SEQ", allocationSize = 1)
     private Long id;
 
     @Column(unique = true, nullable = false)

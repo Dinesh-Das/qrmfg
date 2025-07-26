@@ -246,6 +246,11 @@ const ReadOnlyWorkflowView = ({ workflowId }) => {
               value={workflowData.materialCode}
               valueStyle={{ fontSize: '16px' }}
             />
+            {workflowData.itemDescription && (
+              <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                {workflowData.itemDescription}
+              </div>
+            )}
           </Col>
           <Col xs={24} sm={12} md={8}>
             <Statistic 
@@ -261,13 +266,7 @@ const ReadOnlyWorkflowView = ({ workflowId }) => {
               )}
             />
           </Col>
-          <Col xs={24} sm={12} md={8}>
-            <Statistic 
-              title="Priority" 
-              value={workflowData.priorityLevel}
-              valueStyle={{ fontSize: '16px' }}
-            />
-          </Col>
+
         </Row>
 
         <Divider />

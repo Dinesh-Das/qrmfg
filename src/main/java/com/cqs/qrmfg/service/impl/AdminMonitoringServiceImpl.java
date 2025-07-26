@@ -3,7 +3,7 @@ package com.cqs.qrmfg.service.impl;
 import com.cqs.qrmfg.dto.QuerySlaReportDto;
 import com.cqs.qrmfg.dto.UserRoleAssignmentDto;
 import com.cqs.qrmfg.dto.WorkflowMonitoringDto;
-import com.cqs.qrmfg.model.MaterialWorkflow;
+import com.cqs.qrmfg.model.Workflow;
 import com.cqs.qrmfg.model.Query;
 import com.cqs.qrmfg.model.QueryStatus;
 import com.cqs.qrmfg.model.WorkflowState;
@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
 public class AdminMonitoringServiceImpl implements AdminMonitoringService {
 
     @Autowired
-    private WorkflowRepository materialWorkflowRepository;
+    private WorkflowRepository workflowRepository;
 
     @Autowired
     private QueryRepository queryRepository;
@@ -44,27 +44,27 @@ public class AdminMonitoringServiceImpl implements AdminMonitoringService {
 
     @Override
     public WorkflowMonitoringDto getWorkflowMonitoringDashboard() {
-        long totalWorkflows = materialWorkflowRepository.count();
-        long activeWorkflows = materialWorkflowRepository.countByStateNot(WorkflowState.COMPLETED);
-        long completedWorkflows = materialWorkflowRepository.countByState(WorkflowState.COMPLETED);
+        long totalWorkflows = workflowRepository.count();
+        long activeWorkflows = workflowRepository.countByStateNot(WorkflowState.COMPLETED);
+        long completedWorkflows = workflowRepository.countByState(WorkflowState.COMPLETED);
         
         // Calculate workflows with open queries
         long workflowsWithOpenQueries = queryRepository.countDistinctWorkflow_IdByStatus(QueryStatus.OPEN);
         
         // Calculate overdue workflows (more than 7 days old and not completed)
         LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
-        long overdueWorkflows = materialWorkflowRepository.countByStateNotAndCreatedAtBefore(
+        long overdueWorkflows = workflowRepository.countByStateNotAndCreatedAtBefore(
                 WorkflowState.COMPLETED, sevenDaysAgo);
         
         // Get workflows by state
         Map<String, Long> workflowsByState = new HashMap<>();
         for (WorkflowState state : WorkflowState.values()) {
-            workflowsByState.put(state.name(), materialWorkflowRepository.countByState(state));
+            workflowsByState.put(state.name(), workflowRepository.countByState(state));
         }
         
         // Get workflows by plant
         Map<String, Long> workflowsByPlant = new HashMap<>();
-        List<Object[]> plantCounts = materialWorkflowRepository.countByPlantCodeGrouped();
+        List<Object[]> plantCounts = workflowRepository.countByPlantCodeGrouped();
         for (Object[] row : plantCounts) {
             workflowsByPlant.put((String) row[0], (Long) row[1]);
         }
@@ -72,13 +72,13 @@ public class AdminMonitoringServiceImpl implements AdminMonitoringService {
         // Get recent activity (last 30 days)
         LocalDateTime thirtyDaysAgo = LocalDateTime.now().minusDays(30);
         Map<String, Long> recentActivity = new HashMap<>();
-        List<Object[]> activityCounts = materialWorkflowRepository.countByCreatedAtAfterGroupByDay(thirtyDaysAgo);
+        List<Object[]> activityCounts = workflowRepository.countByCreatedAtAfterGroupByDay(thirtyDaysAgo);
         for (Object[] row : activityCounts) {
             recentActivity.put(row[0].toString(), (Long) row[1]);
         }
         
         // Calculate average completion time in hours
-        Double avgCompletionTime = materialWorkflowRepository.calculateAverageCompletionTimeHours();
+        Double avgCompletionTime = workflowRepository.calculateAverageCompletionTimeHours();
         double averageCompletionTimeHours = avgCompletionTime != null ? avgCompletionTime : 0.0;
         
         // Query statistics
@@ -109,7 +109,7 @@ public class AdminMonitoringServiceImpl implements AdminMonitoringService {
     public Map<String, Long> getWorkflowStatusDistribution() {
         Map<String, Long> distribution = new HashMap<>();
         for (WorkflowState state : WorkflowState.values()) {
-            distribution.put(state.name(), materialWorkflowRepository.countByState(state));
+            distribution.put(state.name(), workflowRepository.countByState(state));
         }
         return distribution;
     }
@@ -256,7 +256,7 @@ public class AdminMonitoringServiceImpl implements AdminMonitoringService {
         
         // Average time spent in each state
         Map<String, Double> avgTimeInState = new HashMap<>();
-        List<Object[]> timeInStateData = materialWorkflowRepository.calculateAverageTimeInEachStateGrouped();
+        List<Object[]> timeInStateData = workflowRepository.calculateAverageTimeInEachStateGrouped();
         for (Object[] row : timeInStateData) {
             avgTimeInState.put(row[0].toString(), (Double) row[1]);
         }
@@ -264,7 +264,7 @@ public class AdminMonitoringServiceImpl implements AdminMonitoringService {
         
         // States with most overdue workflows
         Map<String, Long> overdueByState = new HashMap<>();
-        List<Object[]> overdueStateData = materialWorkflowRepository.countOverdueWorkflowsByStateGrouped();
+        List<Object[]> overdueStateData = workflowRepository.countOverdueWorkflowsByStateGrouped();
         for (Object[] row : overdueStateData) {
             overdueByState.put(row[0].toString(), (Long) row[1]);
         }
@@ -280,7 +280,7 @@ public class AdminMonitoringServiceImpl implements AdminMonitoringService {
         
         // Plants with most delayed workflows
         Map<String, Long> delayedByPlant = new HashMap<>();
-        List<Object[]> delayedPlantData = materialWorkflowRepository.countDelayedWorkflowsByPlantGrouped();
+        List<Object[]> delayedPlantData = workflowRepository.countDelayedWorkflowsByPlantGrouped();
         for (Object[] row : delayedPlantData) {
             delayedByPlant.put((String) row[0], (Long) row[1]);
         }
@@ -300,15 +300,15 @@ public class AdminMonitoringServiceImpl implements AdminMonitoringService {
         Map<String, Object> metrics = new HashMap<>();
         
         // Apply date filters
-        List<MaterialWorkflow> workflows;
+        List<Workflow> workflows;
         if (startDate != null && endDate != null) {
-            workflows = materialWorkflowRepository.findByCreatedAtBetween(startDate, endDate);
+            workflows = workflowRepository.findByCreatedAtBetween(startDate, endDate);
         } else if (startDate != null) {
-            workflows = materialWorkflowRepository.findByCreatedAtAfter(startDate);
+            workflows = workflowRepository.findByCreatedAtAfter(startDate);
         } else if (endDate != null) {
-            workflows = materialWorkflowRepository.findByCreatedAtBefore(endDate);
+            workflows = workflowRepository.findByCreatedAtBefore(endDate);
         } else {
-            workflows = materialWorkflowRepository.findAll();
+            workflows = workflowRepository.findAll();
         }
         
         // Calculate completion rate
@@ -372,28 +372,28 @@ public class AdminMonitoringServiceImpl implements AdminMonitoringService {
 
     @Override
     public byte[] exportWorkflowReportAsCsv(LocalDateTime startDate, LocalDateTime endDate, String state) {
-        List<MaterialWorkflow> workflows;
+        List<Workflow> workflows;
         
         // Apply filters
         if (startDate != null && endDate != null) {
             if (state != null) {
                 WorkflowState workflowState = WorkflowState.valueOf(state);
-                workflows = materialWorkflowRepository.findByStateAndCreatedAtBetween(workflowState, startDate, endDate);
+                workflows = workflowRepository.findByStateAndCreatedAtBetween(workflowState, startDate, endDate);
             } else {
-                workflows = materialWorkflowRepository.findByCreatedAtBetween(startDate, endDate);
+                workflows = workflowRepository.findByCreatedAtBetween(startDate, endDate);
             }
         } else if (state != null) {
             WorkflowState workflowState = WorkflowState.valueOf(state);
-            workflows = materialWorkflowRepository.findByState(workflowState);
+            workflows = workflowRepository.findByState(workflowState);
         } else {
-            workflows = materialWorkflowRepository.findAll();
+            workflows = workflowRepository.findAll();
         }
         
         // Convert to CSV
         StringBuilder csv = new StringBuilder();
         csv.append("Material ID,State,Assigned Plant,Initiated By,Created At,Last Modified,Open Queries,Total Queries\n");
         
-        for (MaterialWorkflow workflow : workflows) {
+        for (Workflow workflow : workflows) {
             long openQueries = workflow.getQueries().stream()
                     .filter(q -> q.getStatus() == QueryStatus.OPEN)
                     .count();

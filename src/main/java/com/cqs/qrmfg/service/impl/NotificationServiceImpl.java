@@ -3,11 +3,12 @@ package com.cqs.qrmfg.service.impl;
 import com.cqs.qrmfg.config.NotificationConfig;
 import com.cqs.qrmfg.dto.NotificationRequest;
 import com.cqs.qrmfg.dto.NotificationResult;
-import com.cqs.qrmfg.model.MaterialWorkflow;
+import com.cqs.qrmfg.model.Workflow;
 import com.cqs.qrmfg.config.NotificationWebSocketHandler;
 import com.cqs.qrmfg.model.NotificationPreference;
 import com.cqs.qrmfg.model.Query;
 import com.cqs.qrmfg.model.WorkflowState;
+import static com.cqs.qrmfg.model.WorkflowState.*;
 import com.cqs.qrmfg.repository.NotificationPreferenceRepository;
 import com.cqs.qrmfg.service.NotificationService;
 import com.cqs.qrmfg.service.MetricsService;
@@ -130,7 +131,7 @@ public class NotificationServiceImpl implements NotificationService {
     
     // Workflow-specific notification methods
     @Override
-    public void notifyWorkflowCreated(MaterialWorkflow workflow) {
+    public void notifyWorkflowCreated(Workflow workflow) {
         Map<String, Object> data = new HashMap<>();
         data.put("workflow", workflow);
         data.put("materialCode", workflow.getMaterialCode());
@@ -182,7 +183,7 @@ public class NotificationServiceImpl implements NotificationService {
     }
     
     @Override
-    public void notifyWorkflowExtended(MaterialWorkflow workflow, String extendedBy) {
+    public void notifyWorkflowExtended(Workflow workflow, String extendedBy) {
         Map<String, Object> data = new HashMap<>();
         data.put("workflow", workflow);
         data.put("extendedBy", extendedBy);
@@ -209,7 +210,7 @@ public class NotificationServiceImpl implements NotificationService {
     }
     
     @Override
-    public void notifyWorkflowCompleted(MaterialWorkflow workflow, String completedBy) {
+    public void notifyWorkflowCompleted(Workflow workflow, String completedBy) {
         Map<String, Object> data = new HashMap<>();
         data.put("workflow", workflow);
         data.put("completedBy", completedBy);
@@ -244,7 +245,7 @@ public class NotificationServiceImpl implements NotificationService {
     }
     
     @Override
-    public void notifyWorkflowStateChanged(MaterialWorkflow workflow, WorkflowState previousState, String changedBy) {
+    public void notifyWorkflowStateChanged(Workflow workflow, WorkflowState previousState, String changedBy) {
         Map<String, Object> data = new HashMap<>();
         data.put("workflow", workflow);
         data.put("previousState", previousState);
@@ -302,7 +303,7 @@ public class NotificationServiceImpl implements NotificationService {
     }
     
     @Override
-    public void notifyWorkflowOverdue(MaterialWorkflow workflow) {
+    public void notifyWorkflowOverdue(Workflow workflow) {
         Map<String, Object> data = new HashMap<>();
         data.put("workflow", workflow);
         

@@ -2,7 +2,7 @@ package com.cqs.qrmfg.service;
 
 import com.cqs.qrmfg.dto.NotificationRequest;
 import com.cqs.qrmfg.dto.NotificationResult;
-import com.cqs.qrmfg.model.MaterialWorkflow;
+import com.cqs.qrmfg.model.Workflow;
 import com.cqs.qrmfg.model.Query;
 import com.cqs.qrmfg.model.WorkflowState;
 import java.util.List;
@@ -26,11 +26,11 @@ public interface NotificationService {
     CompletableFuture<NotificationResult> sendSlackMessageAsync(String channel, String message);
     
     // Workflow-specific notification methods
-    void notifyWorkflowCreated(MaterialWorkflow workflow);
-    void notifyWorkflowExtended(MaterialWorkflow workflow, String extendedBy);
-    void notifyWorkflowCompleted(MaterialWorkflow workflow, String completedBy);
-    void notifyWorkflowStateChanged(MaterialWorkflow workflow, WorkflowState previousState, String changedBy);
-    void notifyWorkflowOverdue(MaterialWorkflow workflow);
+    void notifyWorkflowCreated(Workflow workflow);
+    void notifyWorkflowExtended(Workflow workflow, String extendedBy);
+    void notifyWorkflowCompleted(Workflow workflow, String completedBy);
+    void notifyWorkflowStateChanged(Workflow workflow, WorkflowState previousState, String changedBy);
+    void notifyWorkflowOverdue(Workflow workflow);
     
     // Query-specific notification methods
     void notifyQueryRaised(Query query);

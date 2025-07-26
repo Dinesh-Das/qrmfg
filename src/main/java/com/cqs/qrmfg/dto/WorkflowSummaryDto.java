@@ -13,6 +13,7 @@ public class WorkflowSummaryDto {
     private String materialCode;
     private String materialName;
     private String materialDescription;
+    private String itemDescription;
     private WorkflowState currentState;
     private String assignedPlant;
     private String plantCode;
@@ -30,7 +31,7 @@ public class WorkflowSummaryDto {
     public WorkflowSummaryDto() {}
 
     public WorkflowSummaryDto(Long id, String projectCode, String materialCode, String materialName, 
-                             String materialDescription, WorkflowState currentState, String assignedPlant, 
+                             String materialDescription, String itemDescription, WorkflowState currentState, String assignedPlant, 
                              String plantCode, String blockId, String initiatedBy, int daysPending, 
                              long totalQueries, long openQueries, long documentCount, LocalDateTime createdAt, 
                              LocalDateTime lastModified, boolean overdue) {
@@ -39,6 +40,7 @@ public class WorkflowSummaryDto {
         this.materialCode = materialCode;
         this.materialName = materialName;
         this.materialDescription = materialDescription;
+        this.itemDescription = itemDescription;
         this.currentState = currentState;
         this.assignedPlant = assignedPlant;
         this.plantCode = plantCode;
@@ -164,6 +166,14 @@ public class WorkflowSummaryDto {
 
     public void setMaterialDescription(String materialDescription) {
         this.materialDescription = materialDescription;
+    }
+
+    public String getItemDescription() {
+        return itemDescription;
+    }
+
+    public void setItemDescription(String itemDescription) {
+        this.itemDescription = itemDescription;
     }
 
     public String getPlantCode() {

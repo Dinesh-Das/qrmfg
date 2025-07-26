@@ -4,11 +4,11 @@ import com.cqs.qrmfg.dto.*;
 import com.cqs.qrmfg.model.QrmfgLocationMaster;
 import com.cqs.qrmfg.model.QrmfgProjectItemMaster;
 import com.cqs.qrmfg.model.QrmfgBlockMaster;
-import com.cqs.qrmfg.model.QRMFGQuestionnaireMaster;
+import com.cqs.qrmfg.model.Question;
 import com.cqs.qrmfg.repository.QrmfgLocationMasterRepository;
 import com.cqs.qrmfg.repository.QrmfgProjectItemMasterRepository;
 import com.cqs.qrmfg.repository.QrmfgBlockMasterRepository;
-import com.cqs.qrmfg.repository.QRMFGQuestionnaireMasterRepository;
+import com.cqs.qrmfg.repository.QuestionRepository;
 import com.cqs.qrmfg.service.ProjectService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -40,7 +41,7 @@ public class ProjectServiceImpl implements ProjectService {
     private QrmfgBlockMasterRepository blockRepository;
 
     @Autowired
-    private QRMFGQuestionnaireMasterRepository questionnaireMasterRepository;
+    private QuestionRepository questionnaireMasterRepository;
 
     @Override
     @Cacheable(value = "projects", unless = "#result.isEmpty()")
@@ -56,9 +57,15 @@ public class ProjectServiceImpl implements ProjectService {
     @Cacheable(value = "materials", key = "#projectCode", unless = "#result.isEmpty()")
     public List<MaterialOption> getMaterialsByProject(String projectCode) {
         logger.debug("Fetching materials for project: {}", projectCode);
-        List<String> itemCodes = projectItemRepository.findDistinctItemCodesByProject(projectCode);
-        return itemCodes.stream()
-                .map(itemCode -> new MaterialOption(itemCode, itemCode, projectCode))
+        List<QrmfgProjectItemMaster> projectItems = projectItemRepository.findByProjectCode(projectCode);
+        return projectItems.stream()
+                .map(item -> {
+                    String description = item.getItemDescription();
+                    String label = (description != null && !description.trim().isEmpty()) 
+                        ? item.getItemCode() + " - " + description 
+                        : item.getItemCode();
+                    return new MaterialOption(item.getItemCode(), label, projectCode);
+                })
                 .collect(Collectors.toList());
     }
 
@@ -106,7 +113,7 @@ public class ProjectServiceImpl implements ProjectService {
     @Cacheable(value = "questionnaireTemplates", unless = "#result.isEmpty()")
     public List<QuestionnaireTemplateDto> getQuestionnaireTemplates() {
         logger.debug("Fetching all questionnaire templates from database");
-        List<QRMFGQuestionnaireMaster> templates = questionnaireMasterRepository.findActiveQuestionnaires();
+        List<Question> templates = questionnaireMasterRepository.findActiveQuestionnaires();
         return templates.stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
@@ -116,15 +123,15 @@ public class ProjectServiceImpl implements ProjectService {
     @Cacheable(value = "questionnaireSteps", unless = "#result.isEmpty()")
     public List<QuestionnaireStepDto> getQuestionnaireSteps() {
         logger.debug("Fetching questionnaire steps from database");
-        List<QRMFGQuestionnaireMaster> templates = questionnaireMasterRepository.findActiveQuestionnaires();
+        List<Question> templates = questionnaireMasterRepository.findActiveQuestionnaires();
         
-        Map<Integer, List<QRMFGQuestionnaireMaster>> stepGroups = templates.stream()
-                .collect(Collectors.groupingBy(QRMFGQuestionnaireMaster::getStepNumber));
+        Map<Integer, List<Question>> stepGroups = templates.stream()
+                .collect(Collectors.groupingBy(Question::getStepNumber));
         
         return stepGroups.entrySet().stream()
                 .map(entry -> {
                     Integer stepNumber = entry.getKey();
-                    List<QRMFGQuestionnaireMaster> stepTemplates = entry.getValue();
+                    List<Question> stepTemplates = entry.getValue();
                     
                     QuestionnaireStepDto stepDto = new QuestionnaireStepDto();
                     stepDto.setStepNumber(stepNumber);
@@ -150,7 +157,7 @@ public class ProjectServiceImpl implements ProjectService {
     @Cacheable(value = "questionnaireTemplatesByStep", key = "#stepNumber", unless = "#result.isEmpty()")
     public List<QuestionnaireTemplateDto> getQuestionnaireTemplatesByStep(Integer stepNumber) {
         logger.debug("Fetching questionnaire templates for step: {}", stepNumber);
-        List<QRMFGQuestionnaireMaster> templates = questionnaireMasterRepository.findByStepNumber(stepNumber);
+        List<Question> templates = questionnaireMasterRepository.findByStepNumber(stepNumber);
         return templates.stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
@@ -160,7 +167,7 @@ public class ProjectServiceImpl implements ProjectService {
     @Cacheable(value = "questionnaireTemplatesByCategory", key = "#category", unless = "#result.isEmpty()")
     public List<QuestionnaireTemplateDto> getQuestionnaireTemplatesByCategory(String category) {
         logger.debug("Fetching questionnaire templates for category: {}", category);
-        List<QRMFGQuestionnaireMaster> templates = questionnaireMasterRepository.findByCategory(category);
+        List<Question> templates = questionnaireMasterRepository.findByCategory(category);
         return templates.stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
@@ -170,8 +177,8 @@ public class ProjectServiceImpl implements ProjectService {
     @Cacheable(value = "questionnaireTemplateByQuestionId", key = "#questionId")
     public QuestionnaireTemplateDto getQuestionnaireTemplateByQuestionId(String questionId) {
         logger.debug("Fetching questionnaire template for question ID: {}", questionId);
-        QRMFGQuestionnaireMaster template = questionnaireMasterRepository.findByQuestionId(questionId);
-        return template != null ? convertToDto(template) : null;
+        Optional<Question> template = questionnaireMasterRepository.findByQuestionId(questionId);
+        return template.isPresent() ? convertToDto(template.get()) : null;
     }
 
     @Override
@@ -223,7 +230,13 @@ public class ProjectServiceImpl implements ProjectService {
         List<QrmfgProjectItemMaster> materials = projectItemRepository.searchByItemCode(searchTerm);
         return materials.stream()
                 .filter(material -> material.getProjectCode().equals(projectCode))
-                .map(material -> new MaterialOption(material.getItemCode(), material.getItemCode(), material.getProjectCode()))
+                .map(material -> {
+                    String description = material.getItemDescription();
+                    String label = (description != null && !description.trim().isEmpty()) 
+                        ? material.getItemCode() + " - " + description 
+                        : material.getItemCode();
+                    return new MaterialOption(material.getItemCode(), label, material.getProjectCode());
+                })
                 .collect(Collectors.toList());
     }
 
@@ -345,7 +358,7 @@ public class ProjectServiceImpl implements ProjectService {
         return stats;
     }
 
-    private QuestionnaireTemplateDto convertToDto(QRMFGQuestionnaireMaster template) {
+    private QuestionnaireTemplateDto convertToDto(Question template) {
         QuestionnaireTemplateDto dto = new QuestionnaireTemplateDto();
         dto.setId(template.getId());
         dto.setSrNo(template.getSrNo());

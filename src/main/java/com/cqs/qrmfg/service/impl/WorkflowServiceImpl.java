@@ -3,10 +3,11 @@ package com.cqs.qrmfg.service.impl;
 import com.cqs.qrmfg.exception.InvalidWorkflowStateException;
 import com.cqs.qrmfg.exception.WorkflowException;
 import com.cqs.qrmfg.exception.WorkflowNotFoundException;
-import com.cqs.qrmfg.model.MaterialWorkflow;
+import com.cqs.qrmfg.model.Workflow;
 import com.cqs.qrmfg.model.QueryStatus;
 import com.cqs.qrmfg.model.WorkflowState;
 import com.cqs.qrmfg.repository.WorkflowRepository;
+import com.cqs.qrmfg.repository.QrmfgProjectItemMasterRepository;
 import com.cqs.qrmfg.service.NotificationService;
 import com.cqs.qrmfg.service.WorkflowService;
 import com.cqs.qrmfg.service.MetricsService;
@@ -31,25 +32,47 @@ public class WorkflowServiceImpl implements WorkflowService {
     private WorkflowRepository workflowRepository;
     
     @Autowired
+    private QrmfgProjectItemMasterRepository projectItemMasterRepository;
+    
+    @Autowired
     private NotificationService notificationService;
     
     @Autowired
     private MetricsService metricsService;
     
+    /**
+     * Helper method to fetch material name from QrmfgProjectItemMaster
+     */
+    private String fetchMaterialNameFromProjectItemMaster(String projectCode, String materialCode) {
+        if (projectCode == null || materialCode == null) {
+            return null;
+        }
+        
+        try {
+            Optional<String> itemDescription = projectItemMasterRepository
+                .findItemDescriptionByProjectCodeAndItemCode(projectCode, materialCode);
+            return itemDescription.orElse(null);
+        } catch (Exception e) {
+            logger.warn("Failed to fetch material name for project: {}, material: {} - {}", 
+                       projectCode, materialCode, e.getMessage());
+            return null;
+        }
+    }
+    
     // Basic CRUD operations
     @Override
-    public MaterialWorkflow save(MaterialWorkflow workflow) {
+    public Workflow save(Workflow workflow) {
         logger.debug("Saving workflow for material: {}", workflow.getMaterialCode());
         return workflowRepository.save(workflow);
     }
     
     @Override
-    public MaterialWorkflow update(MaterialWorkflow workflow) {
+    public Workflow update(Workflow workflow) {
         if (workflow.getId() == null) {
             throw new WorkflowException("Cannot update workflow without ID");
         }
         
-        Optional<MaterialWorkflow> existingOpt = workflowRepository.findById(workflow.getId());
+        Optional<Workflow> existingOpt = workflowRepository.findById(workflow.getId());
         if (!existingOpt.isPresent()) {
             throw new WorkflowNotFoundException(workflow.getId());
         }
@@ -69,24 +92,24 @@ public class WorkflowServiceImpl implements WorkflowService {
     
     @Override
     @Transactional(readOnly = true)
-    public Optional<MaterialWorkflow> findById(Long id) {
+    public Optional<Workflow> findById(Long id) {
         return workflowRepository.findById(id);
     }
     
     @Override
     @Transactional(readOnly = true)
-    public Optional<MaterialWorkflow> findByMaterialCode(String materialCode) {
+    public Optional<Workflow> findByMaterialCode(String materialCode) {
         // If you want to keep returning Optional, use stream().findFirst()
         return workflowRepository.findByMaterialCode(materialCode).stream().findFirst();
     }
     
     @Override
     @Transactional(readOnly = true)
-    public List<MaterialWorkflow> findAll() {
-        List<MaterialWorkflow> workflows = workflowRepository.findAllWithQueries();
+    public List<Workflow> findAll() {
+        List<Workflow> workflows = workflowRepository.findAllWithQueries();
         
         // Initialize documents collection for each workflow within the same transaction
-        for (MaterialWorkflow workflow : workflows) {
+        for (Workflow workflow : workflows) {
             workflow.getDocuments().size(); // This will trigger lazy loading within transaction
         }
         
@@ -95,7 +118,7 @@ public class WorkflowServiceImpl implements WorkflowService {
     
     // Workflow creation
     @Override
-    public MaterialWorkflow initiateWorkflow(String materialCode, String materialName, String materialDescription,
+    public Workflow initiateWorkflow(String materialCode, String materialName, String materialDescription,
                                            String assignedPlant, String initiatedBy) {
         // Check if workflow already exists
         if (workflowRepository.existsByMaterialCode(materialCode)) {
@@ -103,12 +126,12 @@ public class WorkflowServiceImpl implements WorkflowService {
         }
         
         // Create workflow using enhanced constructor and map to legacy fields
-        MaterialWorkflow workflow = new MaterialWorkflow(materialCode, materialCode, assignedPlant, "DEFAULT", initiatedBy);
+        Workflow workflow = new Workflow(materialCode, materialCode, assignedPlant, "DEFAULT", initiatedBy);
         workflow.setMaterialName(materialName);
         workflow.setMaterialDescription(materialDescription);
         
         logger.info("Initiating workflow for material: {} by user: {}", materialCode, initiatedBy);
-        MaterialWorkflow savedWorkflow = workflowRepository.save(workflow);
+        Workflow savedWorkflow = workflowRepository.save(workflow);
         
         // Send notification for workflow creation
         try {
@@ -122,12 +145,12 @@ public class WorkflowServiceImpl implements WorkflowService {
     }
     
     @Override
-    public MaterialWorkflow initiateWorkflow(String materialCode, String assignedPlant, String initiatedBy) {
+    public Workflow initiateWorkflow(String materialCode, String assignedPlant, String initiatedBy) {
         return initiateWorkflow(materialCode, null, null, assignedPlant, initiatedBy);
     }
 
     @Override
-    public MaterialWorkflow initiateEnhancedWorkflow(String projectCode, String materialCode, String plantCode, 
+    public Workflow initiateEnhancedWorkflow(String projectCode, String materialCode, String plantCode, 
                                                    String blockId, String initiatedBy) {
         // Check if workflow already exists for this combination
         if (workflowRepository.existsByProjectCodeAndMaterialCodeAndPlantCodeAndBlockId(
@@ -137,11 +160,22 @@ public class WorkflowServiceImpl implements WorkflowService {
                 projectCode, materialCode, plantCode, blockId));
         }
         
-        MaterialWorkflow workflow = new MaterialWorkflow(projectCode, materialCode, plantCode, blockId, initiatedBy);
+        Workflow workflow = new Workflow(projectCode, materialCode, plantCode, blockId, initiatedBy);
+        
+        // Fetch and set material name from QrmfgProjectItemMaster
+        String materialName = fetchMaterialNameFromProjectItemMaster(projectCode, materialCode);
+        if (materialName != null) {
+            workflow.setMaterialName(materialName);
+            logger.debug("Set material name from ProjectItemMaster: {} for project: {}, material: {}", 
+                        materialName, projectCode, materialCode);
+        } else {
+            logger.warn("Could not fetch material name from ProjectItemMaster for project: {}, material: {}", 
+                       projectCode, materialCode);
+        }
         
         logger.info("Initiating enhanced workflow for project: {}, material: {}, plant: {}, block: {} by user: {}", 
                    projectCode, materialCode, plantCode, blockId, initiatedBy);
-        MaterialWorkflow savedWorkflow = workflowRepository.save(workflow);
+        Workflow savedWorkflow = workflowRepository.save(workflow);
         
         // Send notification for workflow creation
         try {
@@ -154,24 +188,98 @@ public class WorkflowServiceImpl implements WorkflowService {
         return savedWorkflow;
     }
     
+    /**
+     * Update material names for existing workflows from QrmfgProjectItemMaster
+     */
+    @Override
+    public void updateMaterialNamesFromProjectItemMaster() {
+        logger.info("Starting bulk update of material names from ProjectItemMaster");
+        
+        List<Workflow> workflows = workflowRepository.findAll();
+        int updatedCount = 0;
+        int skippedCount = 0;
+        int notFoundCount = 0;
+        
+        logger.info("Found {} workflows to process", workflows.size());
+        
+        for (Workflow workflow : workflows) {
+            String currentMaterialName = workflow.getMaterialName();
+            String projectCode = workflow.getProjectCode();
+            String materialCode = workflow.getMaterialCode();
+            
+            logger.debug("Processing workflow {}: project={}, material={}, currentName={}", 
+                        workflow.getId(), projectCode, materialCode, currentMaterialName);
+            
+            String fetchedMaterialName = fetchMaterialNameFromProjectItemMaster(projectCode, materialCode);
+            
+            if (fetchedMaterialName != null) {
+                if (!fetchedMaterialName.equals(currentMaterialName)) {
+                    workflow.setMaterialName(fetchedMaterialName);
+                    workflowRepository.save(workflow);
+                    updatedCount++;
+                    
+                    logger.info("Updated material name for workflow {}: '{}' -> '{}'", 
+                               workflow.getId(), currentMaterialName, fetchedMaterialName);
+                } else {
+                    skippedCount++;
+                    logger.debug("Skipped workflow {} - material name already correct: '{}'", 
+                                workflow.getId(), currentMaterialName);
+                }
+            } else {
+                notFoundCount++;
+                logger.warn("No material name found in ProjectItemMaster for workflow {}: project={}, material={}", 
+                           workflow.getId(), projectCode, materialCode);
+            }
+        }
+        
+        logger.info("Completed bulk update of material names. Updated: {}, Skipped: {}, Not Found: {}, Total: {}", 
+                   updatedCount, skippedCount, notFoundCount, workflows.size());
+    }
+    
+    /**
+     * Update material name for a specific workflow from QrmfgProjectItemMaster
+     */
+    @Override
+    public Workflow updateMaterialNameFromProjectItemMaster(Long workflowId) {
+        Workflow workflow = workflowRepository.findById(workflowId)
+            .orElseThrow(() -> new WorkflowNotFoundException(workflowId));
+        
+        String fetchedMaterialName = fetchMaterialNameFromProjectItemMaster(
+            workflow.getProjectCode(), workflow.getMaterialCode());
+        
+        if (fetchedMaterialName != null) {
+            String oldName = workflow.getMaterialName();
+            workflow.setMaterialName(fetchedMaterialName);
+            Workflow savedWorkflow = workflowRepository.save(workflow);
+            
+            logger.info("Updated material name for workflow {}: {} -> {}", 
+                       workflowId, oldName, fetchedMaterialName);
+            
+            return savedWorkflow;
+        } else {
+            logger.warn("Could not fetch material name from ProjectItemMaster for workflow {}", workflowId);
+            return workflow;
+        }
+    }
+    
     // State transition operations
     @Override
-    public MaterialWorkflow transitionToState(Long workflowId, WorkflowState newState, String updatedBy) {
-        MaterialWorkflow workflow = workflowRepository.findById(workflowId)
+    public Workflow transitionToState(Long workflowId, WorkflowState newState, String updatedBy) {
+        Workflow workflow = workflowRepository.findById(workflowId)
             .orElseThrow(() -> new WorkflowNotFoundException(workflowId));
         
         return performStateTransition(workflow, newState, updatedBy);
     }
     
     @Override
-    public MaterialWorkflow transitionToState(String materialCode, WorkflowState newState, String updatedBy) {
-        MaterialWorkflow workflow = workflowRepository.findByMaterialCode(materialCode)
+    public Workflow transitionToState(String materialCode, WorkflowState newState, String updatedBy) {
+        Workflow workflow = workflowRepository.findByMaterialCode(materialCode)
             .stream().findFirst().orElseThrow(() -> WorkflowNotFoundException.forMaterialCode(materialCode));
         
         return performStateTransition(workflow, newState, updatedBy);
     }
     
-    private MaterialWorkflow performStateTransition(MaterialWorkflow workflow, WorkflowState newState, String updatedBy) {
+    private Workflow performStateTransition(Workflow workflow, WorkflowState newState, String updatedBy) {
         WorkflowState currentState = workflow.getState();
         
         logger.info("Transitioning workflow {} from {} to {} by user: {}", 
@@ -183,7 +291,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         // Perform transition
         workflow.transitionTo(newState, updatedBy);
         
-        MaterialWorkflow savedWorkflow = workflowRepository.save(workflow);
+        Workflow savedWorkflow = workflowRepository.save(workflow);
         
         // Send notification for state change - this is the core integration point
         try {
@@ -216,7 +324,7 @@ public class WorkflowServiceImpl implements WorkflowService {
     @Override
     @Transactional(readOnly = true)
     public boolean canTransitionTo(Long workflowId, WorkflowState newState) {
-        MaterialWorkflow workflow = workflowRepository.findById(workflowId)
+        Workflow workflow = workflowRepository.findById(workflowId)
             .orElseThrow(() -> new WorkflowNotFoundException(workflowId));
         
         return workflow.canTransitionTo(newState);
@@ -225,7 +333,7 @@ public class WorkflowServiceImpl implements WorkflowService {
     @Override
     @Transactional(readOnly = true)
     public boolean canTransitionTo(String materialCode, WorkflowState newState) {
-        MaterialWorkflow workflow = workflowRepository.findByMaterialCode(materialCode)
+        Workflow workflow = workflowRepository.findByMaterialCode(materialCode)
             .stream().findFirst().orElseThrow(() -> WorkflowNotFoundException.forMaterialCode(materialCode));
         
         return workflow.canTransitionTo(newState);
@@ -233,8 +341,8 @@ public class WorkflowServiceImpl implements WorkflowService {
     
     // Specific workflow actions
     @Override
-    public MaterialWorkflow extendToPlant(Long workflowId, String updatedBy) {
-        MaterialWorkflow workflow = transitionToState(workflowId, WorkflowState.PLANT_PENDING, updatedBy);
+    public Workflow extendToPlant(Long workflowId, String updatedBy) {
+        Workflow workflow = transitionToState(workflowId, WorkflowState.PLANT_PENDING, updatedBy);
         
         // Send specific notification for workflow extension
         try {
@@ -248,8 +356,8 @@ public class WorkflowServiceImpl implements WorkflowService {
     }
     
     @Override
-    public MaterialWorkflow extendToPlant(String materialCode, String updatedBy) {
-        MaterialWorkflow workflow = transitionToState(materialCode, WorkflowState.PLANT_PENDING, updatedBy);
+    public Workflow extendToPlant(String materialCode, String updatedBy) {
+        Workflow workflow = transitionToState(materialCode, WorkflowState.PLANT_PENDING, updatedBy);
         
         // Send specific notification for workflow extension
         try {
@@ -263,12 +371,12 @@ public class WorkflowServiceImpl implements WorkflowService {
     }
     
     @Override
-    public MaterialWorkflow completeWorkflow(Long workflowId, String updatedBy) {
-        MaterialWorkflow workflow = workflowRepository.findById(workflowId)
+    public Workflow completeWorkflow(Long workflowId, String updatedBy) {
+        Workflow workflow = workflowRepository.findById(workflowId)
             .orElseThrow(() -> new WorkflowNotFoundException(workflowId));
         
         validateWorkflowCompletion(workflow);
-        MaterialWorkflow completedWorkflow = transitionToState(workflowId, WorkflowState.COMPLETED, updatedBy);
+        Workflow completedWorkflow = transitionToState(workflowId, WorkflowState.COMPLETED, updatedBy);
         
         // Send specific notification for workflow completion
         try {
@@ -282,12 +390,12 @@ public class WorkflowServiceImpl implements WorkflowService {
     }
     
     @Override
-    public MaterialWorkflow completeWorkflow(String materialCode, String updatedBy) {
-        MaterialWorkflow workflow = workflowRepository.findByMaterialCode(materialCode)
+    public Workflow completeWorkflow(String materialCode, String updatedBy) {
+        Workflow workflow = workflowRepository.findByMaterialCode(materialCode)
             .stream().findFirst().orElseThrow(() -> WorkflowNotFoundException.forMaterialCode(materialCode));
         
         validateWorkflowCompletion(workflow);
-        MaterialWorkflow completedWorkflow = transitionToState(materialCode, WorkflowState.COMPLETED, updatedBy);
+        Workflow completedWorkflow = transitionToState(materialCode, WorkflowState.COMPLETED, updatedBy);
         
         // Send specific notification for workflow completion
         try {
@@ -301,7 +409,7 @@ public class WorkflowServiceImpl implements WorkflowService {
     }
     
     @Override
-    public MaterialWorkflow moveToQueryState(Long workflowId, WorkflowState queryState, String updatedBy) {
+    public Workflow moveToQueryState(Long workflowId, WorkflowState queryState, String updatedBy) {
         if (!queryState.isQueryState()) {
             throw new InvalidWorkflowStateException("State " + queryState + " is not a query state");
         }
@@ -309,18 +417,18 @@ public class WorkflowServiceImpl implements WorkflowService {
     }
     
     @Override
-    public MaterialWorkflow returnFromQueryState(Long workflowId, String updatedBy) {
+    public Workflow returnFromQueryState(Long workflowId, String updatedBy) {
         return transitionToState(workflowId, WorkflowState.PLANT_PENDING, updatedBy);
     }
     
     // Query-based operations
     @Override
     @Transactional(readOnly = true)
-    public List<MaterialWorkflow> findByState(WorkflowState state) {
-        List<MaterialWorkflow> workflows = workflowRepository.findByStateWithQueries(state);
+    public List<Workflow> findByState(WorkflowState state) {
+        List<Workflow> workflows = workflowRepository.findByStateWithQueries(state);
         
         // Initialize documents collection for each workflow within the same transaction
-        for (MaterialWorkflow workflow : workflows) {
+        for (Workflow workflow : workflows) {
             workflow.getDocuments().size(); // This will trigger lazy loading within transaction
         }
         
@@ -329,11 +437,11 @@ public class WorkflowServiceImpl implements WorkflowService {
     
     @Override
     @Transactional(readOnly = true)
-    public List<MaterialWorkflow> findByPlantCode(String plantCode) {
-        List<MaterialWorkflow> workflows = workflowRepository.findByPlantCodeWithQueries(plantCode);
+    public List<Workflow> findByPlantCode(String plantCode) {
+        List<Workflow> workflows = workflowRepository.findByPlantCodeWithQueries(plantCode);
         
         // Initialize documents collection for each workflow within the same transaction
-        for (MaterialWorkflow workflow : workflows) {
+        for (Workflow workflow : workflows) {
             workflow.getDocuments().size(); // This will trigger lazy loading within transaction
         }
         
@@ -342,11 +450,11 @@ public class WorkflowServiceImpl implements WorkflowService {
     
     @Override
     @Transactional(readOnly = true)
-    public List<MaterialWorkflow> findByInitiatedBy(String username) {
-        List<MaterialWorkflow> workflows = workflowRepository.findByInitiatedByWithQueries(username);
+    public List<Workflow> findByInitiatedBy(String username) {
+        List<Workflow> workflows = workflowRepository.findByInitiatedByWithQueries(username);
         
         // Initialize documents collection for each workflow within the same transaction
-        for (MaterialWorkflow workflow : workflows) {
+        for (Workflow workflow : workflows) {
             workflow.getDocuments().size(); // This will trigger lazy loading within transaction
         }
         
@@ -355,19 +463,19 @@ public class WorkflowServiceImpl implements WorkflowService {
     
     @Override
     @Transactional(readOnly = true)
-    public List<MaterialWorkflow> findPendingWorkflows() {
+    public List<Workflow> findPendingWorkflows() {
         return workflowRepository.findPendingWorkflows();
     }
     
     @Override
     @Transactional(readOnly = true)
-    public List<MaterialWorkflow> findOverdueWorkflows() {
+    public List<Workflow> findOverdueWorkflows() {
         return workflowRepository.findOverdueWorkflows();
     }
     
     @Override
     @Transactional(readOnly = true)
-    public List<MaterialWorkflow> findWorkflowsWithOpenQueries() {
+    public List<Workflow> findWorkflowsWithOpenQueries() {
         return workflowRepository.findWorkflowsWithOpenQueries();
     }
     
@@ -392,21 +500,21 @@ public class WorkflowServiceImpl implements WorkflowService {
     
     @Override
     @Transactional(readOnly = true)
-    public List<MaterialWorkflow> findRecentlyCreated(int days) {
+    public List<Workflow> findRecentlyCreated(int days) {
         LocalDateTime cutoffDate = LocalDateTime.now().minusDays(days);
         return workflowRepository.findByCreatedAtAfter(cutoffDate);
     }
     
     @Override
     @Transactional(readOnly = true)
-    public List<MaterialWorkflow> findRecentlyCompleted(int days) {
+    public List<Workflow> findRecentlyCompleted(int days) {
         LocalDateTime cutoffDate = LocalDateTime.now().minusDays(days);
         return workflowRepository.findByCompletedAtAfter(cutoffDate);
     }
     
     // Validation and business rules
     @Override
-    public void validateStateTransition(MaterialWorkflow workflow, WorkflowState newState) {
+    public void validateStateTransition(Workflow workflow, WorkflowState newState) {
         if (!workflow.canTransitionTo(newState)) {
             throw new InvalidWorkflowStateException(
                 String.format("Invalid state transition for workflow %s: %s -> %s", workflow.getMaterialCode(), workflow.getState(), newState)
@@ -428,7 +536,7 @@ public class WorkflowServiceImpl implements WorkflowService {
     }
     
     @Override
-    public void validateWorkflowCompletion(MaterialWorkflow workflow) {
+    public void validateWorkflowCompletion(Workflow workflow) {
         // Check if there are any open queries
         if (workflow.hasOpenQueries()) {
             throw new WorkflowException(
@@ -449,7 +557,7 @@ public class WorkflowServiceImpl implements WorkflowService {
     @Override
     @Transactional(readOnly = true)
     public boolean isWorkflowReadyForCompletion(Long workflowId) {
-        MaterialWorkflow workflow = workflowRepository.findById(workflowId)
+        Workflow workflow = workflowRepository.findById(workflowId)
             .orElseThrow(() -> new WorkflowNotFoundException(workflowId));
         
         return isWorkflowReadyForCompletion(workflow);
@@ -458,13 +566,13 @@ public class WorkflowServiceImpl implements WorkflowService {
     @Override
     @Transactional(readOnly = true)
     public boolean isWorkflowReadyForCompletion(String materialCode) {
-        MaterialWorkflow workflow = workflowRepository.findByMaterialCode(materialCode)
+        Workflow workflow = workflowRepository.findByMaterialCode(materialCode)
             .stream().findFirst().orElseThrow(() -> WorkflowNotFoundException.forMaterialCode(materialCode));
         
         return isWorkflowReadyForCompletion(workflow);
     }
     
-    private boolean isWorkflowReadyForCompletion(MaterialWorkflow workflow) {
+    private boolean isWorkflowReadyForCompletion(Workflow workflow) {
         try {
             validateWorkflowCompletion(workflow);
             return true;
@@ -476,8 +584,8 @@ public class WorkflowServiceImpl implements WorkflowService {
     // Duplicate checking methods
     @Override
     @Transactional(readOnly = true)
-    public Optional<MaterialWorkflow> findExistingWorkflow(String projectCode, String materialCode, String plantCode, String blockId) {
-        Optional<MaterialWorkflow> workflow = workflowRepository.findByProjectCodeAndMaterialCodeAndPlantCodeAndBlockIdWithQueries(
+    public Optional<Workflow> findExistingWorkflow(String projectCode, String materialCode, String plantCode, String blockId) {
+        Optional<Workflow> workflow = workflowRepository.findByProjectCodeAndMaterialCodeAndPlantCodeAndBlockIdWithQueries(
             projectCode, materialCode, plantCode, blockId);
         
         // Initialize documents collection within transaction if workflow exists

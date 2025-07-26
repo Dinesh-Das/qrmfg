@@ -61,6 +61,7 @@ const QueryInbox = ({ team, userRole }) => {
     total: 0,
     open: 0,
     resolved: 0,
+    resolvedToday: 0,
     overdue: 0,
     avgResolutionTime: 0
   });
@@ -89,10 +90,11 @@ const QueryInbox = ({ team, userRole }) => {
 
   const loadStats = async () => {
     try {
-      const [openCount, resolvedCount, overdueQueries, avgTime] = await Promise.all([
+      const [openCount, resolvedCount, resolvedTodayCount, overdueCount, avgTime] = await Promise.all([
         apiRequest(`/queries/stats/count-open/${team}`).catch(() => 0),
         apiRequest(`/queries/stats/count-resolved/${team}`).catch(() => 0),
-        apiRequest('/queries/overdue').catch(() => []),
+        apiRequest(`/queries/stats/resolved-today/${team}`).catch(() => 0),
+        apiRequest(`/queries/stats/overdue-count/${team}`).catch(() => 0),
         apiRequest(`/queries/stats/avg-resolution-time/${team}`).catch(() => 0)
       ]);
 
@@ -100,7 +102,8 @@ const QueryInbox = ({ team, userRole }) => {
         total: openCount + resolvedCount,
         open: openCount,
         resolved: resolvedCount,
-        overdue: overdueQueries.filter(q => q.assignedTeam === team).length,
+        resolvedToday: resolvedTodayCount,
+        overdue: overdueCount,
         avgResolutionTime: avgTime
       });
     } catch (error) {
@@ -344,9 +347,18 @@ const QueryInbox = ({ team, userRole }) => {
 
   return (
     <div>
-      {/* Statistics Cards */}
+      {/* Team-Specific Statistics */}
+      <Alert
+        message={`${team} Team Statistics`}
+        description="All statistics below are specific to your team and update in real-time."
+        type="info"
+        showIcon
+        style={{ marginBottom: 16 }}
+      />
+      
+      {/* Statistics Cards - Team Specific */}
       <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={6}>
+        <Col span={5}>
           <Card>
             <Statistic
               title="Total Queries"
@@ -355,7 +367,7 @@ const QueryInbox = ({ team, userRole }) => {
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col span={5}>
           <Card>
             <Statistic
               title="Open Queries"
@@ -365,7 +377,17 @@ const QueryInbox = ({ team, userRole }) => {
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col span={5}>
+          <Card>
+            <Statistic
+              title="Resolved Today"
+              value={stats.resolvedToday}
+              valueStyle={{ color: '#3f8600' }}
+              prefix={<CheckCircleOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col span={5}>
           <Card>
             <Statistic
               title="Overdue"
@@ -375,7 +397,7 @@ const QueryInbox = ({ team, userRole }) => {
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col span={4}>
           <Card>
             <Statistic
               title="Avg Resolution Time"
@@ -809,8 +831,16 @@ const QueryInbox = ({ team, userRole }) => {
                   }
                   rules={[{ required: true, message: 'Please provide a resolution response' }]}
                 >
-                  <QueryResponseEditor
+                  <TextArea
+                    rows={8}
                     placeholder="Provide detailed resolution or answer to the query. Include any relevant technical details, safety considerations, or references to documentation..."
+                    showCount
+                    maxLength={2000}
+                    style={{
+                      direction: 'ltr',
+                      textAlign: 'left',
+                      fontFamily: 'inherit'
+                    }}
                   />
                 </Form.Item>
 

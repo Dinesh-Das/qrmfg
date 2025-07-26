@@ -65,8 +65,10 @@ public interface QueryService {
     long countOpenQueriesByTeam(QueryTeam team);
     long countResolvedQueriesByTeam(QueryTeam team);
     long countOverdueQueries();
+    long countOverdueQueriesByTeam(QueryTeam team);
     long countQueriesCreatedToday();
     long countQueriesResolvedToday();
+    long countQueriesResolvedTodayByTeam(QueryTeam team);
     
     // Dashboard and reporting
     List<Query> findPendingQueriesForDashboard();

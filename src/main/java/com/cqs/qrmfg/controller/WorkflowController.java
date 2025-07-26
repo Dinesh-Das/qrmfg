@@ -5,7 +5,7 @@ import com.cqs.qrmfg.dto.WorkflowCreateRequest;
 import com.cqs.qrmfg.dto.WorkflowSummaryDto;
 import com.cqs.qrmfg.exception.WorkflowException;
 import com.cqs.qrmfg.exception.WorkflowNotFoundException;
-import com.cqs.qrmfg.model.MaterialWorkflow;
+import com.cqs.qrmfg.model.Workflow;
 import com.cqs.qrmfg.model.User;
 import com.cqs.qrmfg.model.WorkflowState;
 import com.cqs.qrmfg.service.DocumentService;
@@ -46,7 +46,7 @@ public class WorkflowController {
     @PreAuthorize("hasRole('USER')")
     @Transactional(readOnly = true)
     public ResponseEntity<List<WorkflowSummaryDto>> getAllWorkflows() {
-        List<MaterialWorkflow> workflows = workflowService.findAll();
+        List<Workflow> workflows = workflowService.findAll();
         List<WorkflowSummaryDto> workflowDtos = workflowMapper.toSummaryDtoList(workflows);
         return ResponseEntity.ok(workflowDtos);
     }
@@ -55,9 +55,9 @@ public class WorkflowController {
     @PreAuthorize("hasRole('USER')")
     @Transactional(readOnly = true)
     public ResponseEntity<WorkflowSummaryDto> getWorkflowById(@PathVariable Long id) {
-        Optional<MaterialWorkflow> workflow = workflowService.findById(id);
+        Optional<Workflow> workflow = workflowService.findById(id);
         if (workflow.isPresent()) {
-            MaterialWorkflow w = workflow.get();
+            Workflow w = workflow.get();
             // Initialize collections within transaction
             w.getQueries().size();
             w.getDocuments().size();
@@ -71,9 +71,9 @@ public class WorkflowController {
     @PreAuthorize("hasRole('USER')")
     @Transactional(readOnly = true)
     public ResponseEntity<WorkflowSummaryDto> getWorkflowByMaterialCode(@PathVariable String materialCode) {
-        Optional<MaterialWorkflow> workflow = workflowService.findByMaterialCode(materialCode);
+        Optional<Workflow> workflow = workflowService.findByMaterialCode(materialCode);
         if (workflow.isPresent()) {
-            MaterialWorkflow w = workflow.get();
+            Workflow w = workflow.get();
             // Initialize collections within transaction
             w.getQueries().size();
             w.getDocuments().size();
@@ -93,7 +93,7 @@ public class WorkflowController {
         
         String initiatedBy = getCurrentUsername(authentication);
         
-        MaterialWorkflow workflow;
+        Workflow workflow;
         
         // Support both legacy and enhanced workflow creation
         if (request.getProjectCode() != null && request.getMaterialCode() != null && 
@@ -120,11 +120,8 @@ public class WorkflowController {
         if (request.getSafetyDocumentsPath() != null) {
             workflow.setSafetyDocumentsPath(request.getSafetyDocumentsPath());
         }
-        if (request.getPriorityLevel() != null) {
-            workflow.setPriorityLevel(request.getPriorityLevel());
-        }
         
-        MaterialWorkflow savedWorkflow = workflowService.save(workflow);
+        Workflow savedWorkflow = workflowService.save(workflow);
         
         // Initialize collections within transaction to avoid LazyInitializationException
         savedWorkflow.getQueries().size();
@@ -144,7 +141,7 @@ public class WorkflowController {
             Authentication authentication) {
         
         String updatedBy = getCurrentUsername(authentication);
-        MaterialWorkflow workflow = workflowService.extendToPlant(id, updatedBy);
+        Workflow workflow = workflowService.extendToPlant(id, updatedBy);
         
         // Initialize collections within transaction
         workflow.getQueries().size();
@@ -162,7 +159,7 @@ public class WorkflowController {
             Authentication authentication) {
         
         String updatedBy = getCurrentUsername(authentication);
-        MaterialWorkflow workflow = workflowService.extendToPlant(materialCode, updatedBy);
+        Workflow workflow = workflowService.extendToPlant(materialCode, updatedBy);
         
         // Initialize collections within transaction
         workflow.getQueries().size();
@@ -180,7 +177,7 @@ public class WorkflowController {
             Authentication authentication) {
         
         String updatedBy = getCurrentUsername(authentication);
-        MaterialWorkflow workflow = workflowService.completeWorkflow(id, updatedBy);
+        Workflow workflow = workflowService.completeWorkflow(id, updatedBy);
         
         // Initialize collections within transaction
         workflow.getQueries().size();
@@ -198,7 +195,7 @@ public class WorkflowController {
             Authentication authentication) {
         
         String updatedBy = getCurrentUsername(authentication);
-        MaterialWorkflow workflow = workflowService.completeWorkflow(materialCode, updatedBy);
+        Workflow workflow = workflowService.completeWorkflow(materialCode, updatedBy);
         
         // Initialize collections within transaction
         workflow.getQueries().size();
@@ -224,7 +221,7 @@ public class WorkflowController {
         try {
             WorkflowState newState = WorkflowState.valueOf(newStateStr);
             String updatedBy = getCurrentUsername(authentication);
-            MaterialWorkflow workflow = workflowService.transitionToState(id, newState, updatedBy);
+            Workflow workflow = workflowService.transitionToState(id, newState, updatedBy);
             
             // Initialize collections within transaction
             workflow.getQueries().size();
@@ -244,11 +241,11 @@ public class WorkflowController {
     public ResponseEntity<List<WorkflowSummaryDto>> getWorkflowsByState(@PathVariable String state) {
         try {
             WorkflowState workflowState = WorkflowState.valueOf(state);
-            List<MaterialWorkflow> workflows = workflowService.findByState(workflowState);
+            List<Workflow> workflows = workflowService.findByState(workflowState);
             
             // Debug logging
             System.out.println("Found " + workflows.size() + " workflows for state: " + state);
-            for (MaterialWorkflow workflow : workflows) {
+            for (Workflow workflow : workflows) {
                 System.out.println("Workflow: " + workflow.getId() + 
                     ", Project: " + workflow.getProjectCode() + 
                     ", Material: " + workflow.getMaterialCode() + 
@@ -280,7 +277,7 @@ public class WorkflowController {
     @PreAuthorize("hasRole('USER')")
     @Transactional(readOnly = true)
     public ResponseEntity<List<WorkflowSummaryDto>> getWorkflowsByPlant(@PathVariable String plantName) {
-        List<MaterialWorkflow> workflows = workflowService.findByPlantCode(plantName);
+        List<Workflow> workflows = workflowService.findByPlantCode(plantName);
         List<WorkflowSummaryDto> workflowDtos = workflowMapper.toSummaryDtoList(workflows);
         return ResponseEntity.ok(workflowDtos);
     }
@@ -289,7 +286,7 @@ public class WorkflowController {
     @PreAuthorize("hasRole('USER')")
     @Transactional(readOnly = true)
     public ResponseEntity<List<WorkflowSummaryDto>> getWorkflowsByInitiatedBy(@PathVariable String username) {
-        List<MaterialWorkflow> workflows = workflowService.findByInitiatedBy(username);
+        List<Workflow> workflows = workflowService.findByInitiatedBy(username);
         List<WorkflowSummaryDto> workflowDtos = workflowMapper.toSummaryDtoList(workflows);
         return ResponseEntity.ok(workflowDtos);
     }
@@ -298,7 +295,7 @@ public class WorkflowController {
     @PreAuthorize("hasRole('USER')")
     @Transactional(readOnly = true)
     public ResponseEntity<List<WorkflowSummaryDto>> getPendingWorkflows() {
-        List<MaterialWorkflow> workflows = workflowService.findPendingWorkflows();
+        List<Workflow> workflows = workflowService.findPendingWorkflows();
         List<WorkflowSummaryDto> workflowDtos = workflowMapper.toSummaryDtoList(workflows);
         return ResponseEntity.ok(workflowDtos);
     }
@@ -307,7 +304,7 @@ public class WorkflowController {
     @PreAuthorize("hasRole('USER')")
     @Transactional(readOnly = true)
     public ResponseEntity<List<WorkflowSummaryDto>> getOverdueWorkflows() {
-        List<MaterialWorkflow> workflows = workflowService.findOverdueWorkflows();
+        List<Workflow> workflows = workflowService.findOverdueWorkflows();
         List<WorkflowSummaryDto> workflowDtos = workflowMapper.toSummaryDtoList(workflows);
         return ResponseEntity.ok(workflowDtos);
     }
@@ -316,7 +313,7 @@ public class WorkflowController {
     @PreAuthorize("hasRole('USER')")
     @Transactional(readOnly = true)
     public ResponseEntity<List<WorkflowSummaryDto>> getWorkflowsWithOpenQueries() {
-        List<MaterialWorkflow> workflows = workflowService.findWorkflowsWithOpenQueries();
+        List<Workflow> workflows = workflowService.findWorkflowsWithOpenQueries();
         List<WorkflowSummaryDto> workflowDtos = workflowMapper.toSummaryDtoList(workflows);
         return ResponseEntity.ok(workflowDtos);
     }
@@ -352,7 +349,7 @@ public class WorkflowController {
     @PreAuthorize("hasRole('USER')")
     @Transactional(readOnly = true)
     public ResponseEntity<List<WorkflowSummaryDto>> getRecentlyCreated(@RequestParam(defaultValue = "7") int days) {
-        List<MaterialWorkflow> workflows = workflowService.findRecentlyCreated(days);
+        List<Workflow> workflows = workflowService.findRecentlyCreated(days);
         List<WorkflowSummaryDto> workflowDtos = workflowMapper.toSummaryDtoList(workflows);
         return ResponseEntity.ok(workflowDtos);
     }
@@ -361,7 +358,7 @@ public class WorkflowController {
     @PreAuthorize("hasRole('USER')")
     @Transactional(readOnly = true)
     public ResponseEntity<List<WorkflowSummaryDto>> getRecentlyCompleted(@RequestParam(defaultValue = "7") int days) {
-        List<MaterialWorkflow> workflows = workflowService.findRecentlyCompleted(days);
+        List<Workflow> workflows = workflowService.findRecentlyCompleted(days);
         List<WorkflowSummaryDto> workflowDtos = workflowMapper.toSummaryDtoList(workflows);
         return ResponseEntity.ok(workflowDtos);
     }
@@ -399,14 +396,14 @@ public class WorkflowController {
             logger.debug("Checking for existing workflow: project={}, material={}, plant={}, block={}", 
                         projectCode, materialCode, plantCode, blockId);
             
-            Optional<MaterialWorkflow> existingWorkflow = workflowService.findExistingWorkflow(
+            Optional<Workflow> existingWorkflow = workflowService.findExistingWorkflow(
                 projectCode, materialCode, plantCode, blockId);
             
             Map<String, Object> response = new java.util.HashMap<>();
             response.put("exists", existingWorkflow.isPresent());
             
             if (existingWorkflow.isPresent()) {
-                MaterialWorkflow workflow = existingWorkflow.get();
+                Workflow workflow = existingWorkflow.get();
                 logger.debug("Found existing workflow with ID: {}", workflow.getId());
                 
                 // Collections should already be initialized by the service method
@@ -451,8 +448,8 @@ public class WorkflowController {
     @GetMapping("/test/count")
     public ResponseEntity<Map<String, Object>> getWorkflowCount() {
         try {
-            List<MaterialWorkflow> allWorkflows = workflowService.findAll();
-            List<MaterialWorkflow> jvcPendingWorkflows = workflowService.findByState(WorkflowState.JVC_PENDING);
+            List<Workflow> allWorkflows = workflowService.findAll();
+            List<Workflow> jvcPendingWorkflows = workflowService.findByState(WorkflowState.JVC_PENDING);
             
             Map<String, Object> counts = new java.util.HashMap<>();
             counts.put("totalWorkflows", allWorkflows.size());
@@ -473,20 +470,17 @@ public class WorkflowController {
     public ResponseEntity<String> createSampleData() {
         try {
             // Create a few sample workflows for testing
-            MaterialWorkflow workflow1 = new MaterialWorkflow("SER-A-123456", "R12345A", "1001", "1001-A", "testuser");
+            Workflow workflow1 = new Workflow("SER-A-123456", "R12345A", "1001", "1001-A", "testuser");
             workflow1.setMaterialName("Test Material 1");
             workflow1.setMaterialDescription("Test material description 1");
-            workflow1.setPriorityLevel("HIGH");
             
-            MaterialWorkflow workflow2 = new MaterialWorkflow("SER-B-789012", "R67890B", "1002", "1002-B", "testuser");
+            Workflow workflow2 = new Workflow("SER-B-789012", "R67890B", "1002", "1002-B", "testuser");
             workflow2.setMaterialName("Test Material 2");
             workflow2.setMaterialDescription("Test material description 2");
-            workflow2.setPriorityLevel("NORMAL");
             
-            MaterialWorkflow workflow3 = new MaterialWorkflow("SER-C-345678", "R34567C", "1003", "1003-C", "admin");
+            Workflow workflow3 = new Workflow("SER-C-345678", "R34567C", "1003", "1003-C", "admin");
             workflow3.setMaterialName("Test Material 3");
             workflow3.setMaterialDescription("Test material description 3");
-            workflow3.setPriorityLevel("URGENT");
             
             workflowService.save(workflow1);
             workflowService.save(workflow2);
@@ -496,6 +490,51 @@ public class WorkflowController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body("Error creating sample data: " + e.getMessage());
+        }
+    }
+
+    // Material name management endpoints
+    @PostMapping("/update-material-names")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('USER')")  // Allow all users to trigger this
+    public ResponseEntity<Map<String, String>> updateAllMaterialNamesFromProjectItemMaster(Authentication authentication) {
+        try {
+            String updatedBy = getCurrentUsername(authentication);
+            logger.info("Starting bulk update of material names from ProjectItemMaster by user: {}", updatedBy);
+            
+            workflowService.updateMaterialNamesFromProjectItemMaster();
+            
+            Map<String, String> response = new java.util.HashMap<>();
+            response.put("message", "Material names updated successfully from ProjectItemMaster");
+            response.put("updatedBy", updatedBy);
+            response.put("timestamp", java.time.LocalDateTime.now().toString());
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Failed to update material names from ProjectItemMaster", e);
+            Map<String, String> errorResponse = new java.util.HashMap<>();
+            errorResponse.put("error", "Failed to update material names");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    @PostMapping("/{id}/update-material-name")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<WorkflowSummaryDto> updateMaterialNameFromProjectItemMaster(
+            @PathVariable Long id, Authentication authentication) {
+        try {
+            String updatedBy = getCurrentUsername(authentication);
+            logger.info("Updating material name for workflow {} from ProjectItemMaster by user: {}", id, updatedBy);
+            
+            Workflow workflow = workflowService.updateMaterialNameFromProjectItemMaster(id);
+            WorkflowSummaryDto dto = workflowMapper.toSummaryDto(workflow);
+            
+            return ResponseEntity.ok(dto);
+        } catch (WorkflowNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            logger.error("Failed to update material name for workflow {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 

@@ -27,12 +27,6 @@ const MaterialContextDisplay = ({ materialCode, workflowId, compact = false }) =
   const [workflowData, setWorkflowData] = useState(null);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    if (materialCode || workflowId) {
-      loadMaterialContext();
-    }
-  }, [materialCode, workflowId, loadMaterialContext]);
-
   const loadMaterialContext = useCallback(async () => {
     try {
       setLoading(true);
@@ -76,6 +70,12 @@ const MaterialContextDisplay = ({ materialCode, workflowId, compact = false }) =
       setLoading(false);
     }
   }, [workflowId, materialCode]);
+
+  useEffect(() => {
+    if (materialCode || workflowId) {
+      loadMaterialContext();
+    }
+  }, [materialCode, workflowId, loadMaterialContext]);
 
   const getWorkflowStateColor = (state) => {
     const colors = {

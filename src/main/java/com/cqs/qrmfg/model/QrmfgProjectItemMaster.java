@@ -4,7 +4,7 @@ import javax.persistence.*;
 import java.io.Serializable;
 
 @Entity
-@Table(name = "QRMFG_PROJECT_ITEM_MASTER")
+@Table(name = "QRMFG_PROJECT_ITEMS")
 @IdClass(QrmfgProjectItemMaster.ProjectItemId.class)
 public class QrmfgProjectItemMaster {
     
@@ -16,11 +16,20 @@ public class QrmfgProjectItemMaster {
     @Column(name = "ITEM_CODE", length = 50)
     private String itemCode;
     
+    @Column(name = "ITEM_DESCRIPTION", length = 50)
+    private String itemDescription;
+    
     public QrmfgProjectItemMaster() {}
     
     public QrmfgProjectItemMaster(String projectCode, String itemCode) {
         this.projectCode = projectCode;
         this.itemCode = itemCode;
+    }
+    
+    public QrmfgProjectItemMaster(String projectCode, String itemCode, String itemDescription) {
+        this.projectCode = projectCode;
+        this.itemCode = itemCode;
+        this.itemDescription = itemDescription;
     }
     
     // Getters and setters
@@ -40,10 +49,18 @@ public class QrmfgProjectItemMaster {
         this.itemCode = itemCode;
     }
     
+    public String getItemDescription() {
+        return itemDescription;
+    }
+    
+    public void setItemDescription(String itemDescription) {
+        this.itemDescription = itemDescription;
+    }
+    
     @Override
     public String toString() {
-        return String.format("QrmfgProjectItemMaster{projectCode='%s', itemCode='%s'}", 
-                           projectCode, itemCode);
+        return String.format("QrmfgProjectItemMaster{projectCode='%s', itemCode='%s', itemDescription='%s'}", 
+                           projectCode, itemCode, itemDescription);
     }
     
     @Override

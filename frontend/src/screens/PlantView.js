@@ -43,17 +43,24 @@ const PlantView = () => {
     try {
       setLoading(true);
       const currentUser = getCurrentUser();
+      
+      if (!currentUser) {
+        message.error('User not authenticated');
+        return;
+      }
+      
       const userWorkflows = await workflowAPI.getWorkflowsByUser(currentUser);
       
       // Filter for plant-pending workflows
       const plantWorkflows = userWorkflows.filter(w => 
-        w.state === 'PLANT_PENDING' || w.assignedPlant === getCurrentPlant()
+        w.currentState === 'PLANT_PENDING' || w.assignedPlant === getCurrentPlant()
       );
       
       setWorkflows(plantWorkflows);
     } catch (error) {
       console.error('Failed to load plant workflows:', error);
       message.error('Failed to load workflows');
+      setWorkflows([]); // Set empty array on error
     } finally {
       setLoading(false);
     }
@@ -65,6 +72,13 @@ const PlantView = () => {
       setDashboardStats(stats);
     } catch (error) {
       console.error('Failed to load dashboard stats:', error);
+      // Set default values if dashboard stats fail to load
+      setDashboardStats({
+        completedToday: 0,
+        totalWorkflows: 0,
+        activeWorkflows: 0,
+        overdueWorkflows: 0
+      });
     }
   };
 
@@ -112,18 +126,23 @@ const PlantView = () => {
       title: 'Material Code',
       dataIndex: 'materialCode',
       key: 'materialCode',
-      width: 120,
+      width: 140,
+      render: (text, record) => (
+        <div>
+          <div style={{ fontWeight: 'bold' }}>{text}</div>
+          {record.itemDescription && (
+            <div style={{ fontSize: '12px', color: '#666' }}>
+              {record.itemDescription}
+            </div>
+          )}
+        </div>
+      ),
     },
-    {
-      title: 'Material Name',
-      dataIndex: 'materialName',
-      key: 'materialName',
-      ellipsis: true,
-    },
+
     {
       title: 'State',
-      dataIndex: 'state',
-      key: 'state',
+      dataIndex: 'currentState',
+      key: 'currentState',
       width: 120,
       render: (state) => (
         <Tag color={getStateColor(state)}>
@@ -179,7 +198,7 @@ const PlantView = () => {
             size="small"
             icon={<FormOutlined />}
             onClick={() => handleStartQuestionnaire(record)}
-            disabled={record.state !== 'PLANT_PENDING'}
+            disabled={record.currentState !== 'PLANT_PENDING'}
           >
             {record.completedSteps > 0 ? 'Continue' : 'Start'}
           </Button>
@@ -208,7 +227,7 @@ const PlantView = () => {
           <Card>
             <Statistic
               title="Pending Tasks"
-              value={workflows.filter(w => w.state === 'PLANT_PENDING').length}
+              value={workflows.filter(w => w.currentState === 'PLANT_PENDING').length}
               prefix={<ClockCircleOutlined />}
               valueStyle={{ color: '#1890ff' }}
             />

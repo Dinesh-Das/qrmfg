@@ -13,6 +13,7 @@ import {
   Col,
   Statistic
 } from 'antd';
+import { apiRequest } from '../api/api';
 import {
   ClockCircleOutlined,
   CheckCircleOutlined,
@@ -44,33 +45,30 @@ const QueryHistoryTracker = ({ queryId, materialCode, workflowId, compact = fals
     try {
       setLoading(true);
       
-      let url = '/queries';
+      let endpoint = '/queries';
       if (queryId) {
-        url += `/${queryId}/history`;
+        endpoint += `/${queryId}/history`;
       } else if (workflowId) {
-        url += `/workflow/${workflowId}`;
+        endpoint += `/workflow/${workflowId}`;
       } else if (materialCode) {
-        url += `/material/${materialCode}`;
+        endpoint += `/material/${materialCode}`;
       }
 
-      const response = await fetch(url);
-      if (response.ok) {
-        const data = await response.json();
-        setHistory(Array.isArray(data) ? data : [data]);
+      const data = await apiRequest(endpoint);
+      setHistory(Array.isArray(data) ? data : [data]);
         
-        // Calculate stats
-        const resolved = data.filter(q => q.status === 'RESOLVED');
-        const avgTime = resolved.length > 0 
-          ? resolved.reduce((sum, q) => sum + (q.daysOpen || 0), 0) / resolved.length 
-          : 0;
-        
-        setStats({
-          totalQueries: data.length,
-          resolvedQueries: resolved.length,
-          avgResolutionTime: avgTime,
-          currentSLA: data.filter(q => q.daysOpen > 3).length
-        });
-      }
+      // Calculate stats
+      const resolved = data.filter(q => q.status === 'RESOLVED');
+      const avgTime = resolved.length > 0 
+        ? resolved.reduce((sum, q) => sum + (q.daysOpen || 0), 0) / resolved.length 
+        : 0;
+      
+      setStats({
+        totalQueries: data.length,
+        resolvedQueries: resolved.length,
+        avgResolutionTime: avgTime,
+        currentSLA: data.filter(q => q.daysOpen > 3).length
+      });
     } catch (error) {
       console.error('Failed to load query history:', error);
     } finally {

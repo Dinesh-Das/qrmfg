@@ -4,11 +4,11 @@ import javax.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "qrmfg_user_sessions")
+@Table(name = "QRMFG_SESSIONS")
 public class UserSession {
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "user_session_seq")
-    @SequenceGenerator(name = "user_session_seq", sequenceName = "RBAC_USER_SESSION_SEQ", allocationSize = 1)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "sessions_seq")
+    @SequenceGenerator(name = "sessions_seq", sequenceName = "QRMFG_SESSIONS_SEQ", allocationSize = 1)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)

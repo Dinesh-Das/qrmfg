@@ -108,4 +108,10 @@ public interface QrmfgProjectItemMasterRepository extends JpaRepository<QrmfgPro
      */
     @Query("SELECT p.itemCode FROM QrmfgProjectItemMaster p GROUP BY p.itemCode HAVING COUNT(p.projectCode) > 1 ORDER BY p.itemCode")
     List<String> findItemsInMultipleProjects();
+    
+    /**
+     * Get item description by project code and item code
+     */
+    @Query("SELECT p.itemDescription FROM QrmfgProjectItemMaster p WHERE p.projectCode = :projectCode AND p.itemCode = :itemCode")
+    Optional<String> findItemDescriptionByProjectCodeAndItemCode(@Param("projectCode") String projectCode, @Param("itemCode") String itemCode);
 }
